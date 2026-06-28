@@ -153,6 +153,7 @@ describe('login', () => {
     serverMock.on.mockImplementation((event: string, cb: any) => { if (event === 'error') cb(new Error('Server error')); });
 
     const loginPromise = login({ credentialsPath: '/c.json' });
+    loginPromise.catch(() => {}); // prevent unhandled rejection (async wrapper rejects during microtask flush)
     await new Promise(r => setTimeout(r, 0));
     await expect(loginPromise).rejects.toThrow('Server error');
   });
