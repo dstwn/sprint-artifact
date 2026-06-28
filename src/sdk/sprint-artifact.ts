@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import type {
   SprintArtifactConfig,
   AuthConfig,
@@ -7,6 +7,7 @@ import type {
   Sprint,
   Task,
   Manifest,
+  ManifestFile,
 } from '../types/index.js';
 import {
   loadConfig,
@@ -93,45 +94,22 @@ export class SprintArtifact {
     const localPath = join(this.projectRoot, '.sprint-artifact', taskType);
     const taskPath = join(localPath, this.config!.selectedTask);
 
-    // Ensure local dir exists
     if (!existsSync(taskPath)) {
       mkdirSync(taskPath, { recursive: true });
     }
 
-    // Build remote file map from task folder
-    const remoteFiles = await this.driveClient!.listFiles(this.config!.selectedTaskFolderId!);
-    const remoteMap = new Map(remoteFiles.map((f) => [f.id, f]));
+    // Recursively pull task folder (handles subfolder hierarchy)
+    await this.pullFolder(this.config!.selectedTaskId, taskPath);
 
-    // Build local file map
-    const localFiles = this.getLocalFiles(taskPath);
-    const localMap = new Map(localFiles.map((f) => [f.id, f]));
+    // Build remote manifest from task folder for stats
+    const remoteFiles = await this.getAllFilesRecursive(this.config!.selectedTaskId);
+    const remoteCount = remoteFiles.length;
 
-    let added = 0;
-    let updated = 0;
-    let deleted = 0;
+    // Count local files
+    let localCount = 0;
+    this.countLocalFilesRecursive(taskPath, () => localCount++);
 
-    // Download new/updated files from remote
-    for (const [id, remote] of remoteMap) {
-      const local = localMap.get(id);
-      if (!local) {
-        added++;
-        await this.downloadFile(id, taskPath, remote.name);
-      } else if (local.modifiedTime !== remote.modifiedTime || local.md5Checksum !== remote.md5Checksum) {
-        updated++;
-        await this.downloadFile(id, taskPath, remote.name);
-      }
-    }
-
-    // Upload local files not on remote
-    for (const [id, local] of localMap) {
-      if (!remoteMap.has(id)) {
-        // File exists locally but not on remote — upload it
-        const parentId = this.config!.selectedTaskFolderId!;
-        const content = readFileSync(join(taskPath, local.name), 'utf-8');
-        await this.driveClient!.createFile(local.name, content, parentId);
-        deleted++;
-      }
-    }
+    const added = remoteCount > localCount ? remoteCount - localCount : 0;
 
     // Update manifest
     this.config!.manifest = {
@@ -140,7 +118,7 @@ export class SprintArtifact {
     };
     await saveConfig(this.projectRoot, this.config!);
 
-    return { added, updated, deleted };
+    return { added, updated: 0, deleted: 0 };
   }
 
   private getLocalFiles(dir: string): { id: string; name: string; modifiedTime: string; md5Checksum?: string }[] {
@@ -175,6 +153,37 @@ export class SprintArtifact {
   private async downloadFile(fileId: string, targetDir: string, fileName: string): Promise<void> {
     const content = await this.driveClient!.getFile(fileId);
     writeFileSync(join(targetDir, fileName), content);
+  }
+
+  private async getAllFilesRecursive(folderId: string): Promise<ManifestFile[]> {
+    const items = await this.driveClient!.listFiles(folderId);
+    let files: ManifestFile[] = [];
+    for (const item of items) {
+      if (item.mimeType === 'application/vnd.google-apps.folder') {
+        const subFiles = await this.getAllFilesRecursive(item.id);
+        files = files.concat(subFiles);
+      } else {
+        files.push(item);
+      }
+    }
+    return files;
+  }
+
+  private countLocalFilesRecursive(dir: string, count: () => void): void {
+    try {
+      const items = readdirSync(dir);
+      for (const item of items) {
+        const itemPath = join(dir, item);
+        const stat = statSync(itemPath);
+        if (stat.isFile()) {
+          count();
+        } else if (stat.isDirectory()) {
+          this.countLocalFilesRecursive(itemPath, count);
+        }
+      }
+    } catch {
+      // Directory doesn't exist
+    }
   }
 
   async moveToSprint(taskFolderId: string, newParentFolderId: string): Promise<void> {
