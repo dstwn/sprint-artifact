@@ -5,7 +5,6 @@ import { SprintArtifact } from '../sdk/index.js';
 import { resolve } from 'node:path';
 import { login } from '../utils/oauth2.js';
 import { saveAuth } from '../utils/config.js';
-import { readFile } from 'node:fs/promises';
 
 const program = new Command();
 
@@ -16,29 +15,14 @@ program
 
 program
   .command('login')
-  .description('Login with Google account')
-  .option('--client-id <id>', 'OAuth2 Client ID')
-  .option('--client-secret <secret>', 'OAuth2 Client Secret')
+  .description('Login with Google account (auto-detect credentials)')
   .option('--credentials <path>', 'Path to OAuth2 credentials JSON file')
   .action(async (options) => {
     try {
-      let clientId = options.clientId;
-      let clientSecret = options.clientSecret;
-
-      if (options.credentials) {
-        const content = JSON.parse(await readFile(options.credentials, 'utf-8'));
-        const creds = content.installed || content.web;
-        clientId = creds.client_id;
-        clientSecret = creds.client_secret;
-      }
-
-      if (!clientId || !clientSecret) {
-        console.error('✗ Provide --client-id and --client-secret, or --credentials');
-        process.exit(1);
-      }
-
       const projectRoot = resolve(process.cwd());
-      const credentials = await login(clientId, clientSecret, projectRoot);
+      const credentials = await login({
+        credentialsPath: options.credentials,
+      });
       
       await saveAuth(projectRoot, {
         type: 'oauth2',
