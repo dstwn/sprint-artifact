@@ -93,7 +93,7 @@ export async function login(options?: {
   const port = (server.address() as any).port;
   server.close();
 
-  const redirectUri = `http://localhost:${port}`;
+  const redirectUri = `http://localhost`;
 
   const oauth2Client = new google.auth.OAuth2(
     clientId,
@@ -109,7 +109,7 @@ export async function login(options?: {
 
   return new Promise((resolve, reject) => {
     const callbackServer = createServer(async (req, res) => {
-      const url = new URL(req.url!, `http://localhost:${port}`);
+      const url = new URL(req.url!, `http://localhost`);
 
       const code = url.searchParams.get('code');
       const error = url.searchParams.get('error');
