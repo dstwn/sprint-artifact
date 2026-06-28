@@ -241,13 +241,30 @@ Auto-generated saat login. Jangan commit ke repository.
 │       ├── 03. Testing Documents/
 │       ├── 04. User Acceptance Test Documents/
 │       └── 05. Guide Documents/
-└── sprints/            # Pulled sprint tasks (auto dari select)
-    └── IDS-456 Another task/
+├── sprints/            # Pulled sprint tasks (auto dari select)
+│   └── IDS-456 Another task/
+└── skills/
+    └── sprint-artifact/         # Per-command skill files
+        ├── sprint-artifact.md           # Overview
+        ├── sprint-artifact-init.md      # Init project
+        ├── sprint-artifact-select.md    # Select task
+        ├── sprint-artifact-backlog-create.md
+        ├── sprint-artifact-pull.md
+        ├── sprint-artifact-push.md
+        ├── sprint-artifact-sync.md
+        ├── sprint-artifact-move.md
+        └── sprint-artifact-status.md
 .cursor/
 ├── mcp.json                              # Cursor MCP (auto-installed)
-└── rules/sprint-artifact/SKILL.md        # Cursor skill (auto-installed)
-.opencode/skills/sprint-artifact/SKILL.md # OpenCode skill (auto-installed)
-.claude/skills/sprint-artifact/SKILL.md   # Claude Code skill (auto-installed)
+└── rules/sprint-artifact/                # Cursor skills (auto-installed)
+    ├── sprint-artifact.md
+    └── ...
+.opencode/skills/sprint-artifact/         # OpenCode skills (auto-installed)
+├── sprint-artifact.md
+└── ...
+.claude/skills/sprint-artifact/           # Claude Code skills (auto-installed)
+├── sprint-artifact.md
+└── ...
 .mcp.json                                 # Claude Code MCP (auto-installed)
 opencode.json                             # OpenCode MCP (auto-installed)
 .vscode/mcp.json                          # Copilot MCP (auto-installed)
