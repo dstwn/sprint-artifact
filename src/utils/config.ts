@@ -53,6 +53,7 @@ export function getDefaultConfig(): SprintArtifactConfig {
     version: 1,
     googleDrive: {
       folderId: '',
+      year: new Date().getFullYear().toString(),
     },
   };
 }

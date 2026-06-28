@@ -5,6 +5,7 @@ import { SprintArtifact } from '../sdk/index.js';
 import { resolve } from 'node:path';
 import { login } from '../utils/oauth2.js';
 import { saveAuth } from '../utils/config.js';
+import { select } from '@inquirer/prompts';
 
 const program = new Command();
 
@@ -41,14 +42,24 @@ program
   .command('init')
   .description('Initialize a new Sprint Artifact project')
   .requiredOption('--folder-id <id>', 'Google Drive folder ID')
+  .option('--year <year>', 'Year folder (e.g., 2026)')
   .option('--auth <path>', 'Path to auth JSON file')
   .action(async (options) => {
     try {
+      const currentYear = new Date().getFullYear().toString();
+      const years = [currentYear, (parseInt(currentYear) - 1).toString(), (parseInt(currentYear) - 2).toString()];
+
+      const year = options.year || await select({
+        message: 'Select year:',
+        choices: years.map(y => ({ name: y, value: y })),
+      });
+
       const projectRoot = resolve(process.cwd());
       const artifact = new SprintArtifact(projectRoot);
-      await artifact.init(options.folderId);
+      await artifact.init(options.folderId, year);
       console.log('✓ Sprint Artifact project initialized');
       console.log(`  Folder ID: ${options.folderId}`);
+      console.log(`  Year: ${year}`);
       console.log('  Config: .sprint-artifact/config.json');
       if (options.auth) {
         console.log(`  Auth: ${options.auth}`);
@@ -118,6 +129,7 @@ program
       console.log(`Initialized: ${status.initialized ? 'Yes' : 'No'}`);
       if (status.initialized) {
         console.log(`Folder ID: ${status.folderId}`);
+        console.log(`Year: ${status.year}`);
         console.log(`Selected Task: ${status.selectedTask || 'None'}`);
         console.log(`Last Sync: ${status.lastSync || 'Never'}`);
         console.log(`Files: ${status.fileCount}`);

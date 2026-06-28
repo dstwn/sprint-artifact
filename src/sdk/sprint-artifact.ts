@@ -26,17 +26,13 @@ export class SprintArtifact {
     this.projectRoot = projectRoot;
   }
 
-  async init(folderId: string, auth?: AuthConfig): Promise<void> {
+  async init(folderId: string, year?: string): Promise<void> {
+    const currentYear = year || new Date().getFullYear().toString();
     this.config = {
       ...getDefaultConfig(),
-      googleDrive: { folderId },
+      googleDrive: { folderId, year: currentYear },
     };
     await saveConfig(this.projectRoot, this.config);
-
-    if (auth) {
-      await saveAuth(this.projectRoot, auth);
-      this.auth = auth;
-    }
 
     this.driveClient = null;
   }
@@ -154,6 +150,7 @@ export class SprintArtifact {
   async status(): Promise<{
     initialized: boolean;
     folderId: string;
+    year: string;
     selectedTask?: string;
     lastSync?: string;
     fileCount: number;
@@ -164,6 +161,7 @@ export class SprintArtifact {
     return {
       initialized,
       folderId: config?.googleDrive.folderId || '',
+      year: config?.googleDrive.year || '',
       selectedTask: config?.selectedTask,
       lastSync: config?.manifest?.lastSync,
       fileCount: config?.manifest?.files.length || 0,
