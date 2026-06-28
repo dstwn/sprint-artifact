@@ -2,7 +2,7 @@
 
 import { Command } from 'commander';
 import { SprintArtifact } from '../sdk/index.js';
-import { resolve } from 'node:path';
+import { resolve, join } from 'node:path';
 import { login } from '../utils/oauth2.js';
 import { saveAuth } from '../utils/config.js';
 import { select } from '@inquirer/prompts';
@@ -183,7 +183,9 @@ program
 
 program
   .command('pull')
-  .description('Pull backlog items from Google Drive')
+  .description('Pull tasks from Google Drive')
+  .option('--backlog', 'Pull from Backlogs folder')
+  .option('--sprint <name>', 'Pull from Sprint folder (e.g., "Sprint 1")')
   .option('--task-id <id>', 'Task ID to pull (optional)')
   .action(async (options) => {
     try {
@@ -194,7 +196,7 @@ program
       const auth = await loadAuth(projectRoot);
       const config = await loadConfig(projectRoot);
       
-      if (!auth || !config?.googleDrive.defaultFolderId) {
+      if (!auth || !config) {
         console.error('✗ Not initialized. Run `sprint-artifact init` first.');
         process.exit(1);
       }
@@ -202,9 +204,55 @@ program
       const { GoogleDriveClient } = await import('../sdk/google-drive.js');
       const driveClient = new GoogleDriveClient(auth);
 
-      // Get folders from default folder
-      const folders = await driveClient.listFiles(config.googleDrive.defaultFolderId);
-      const taskFolders = folders.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
+      // Get year folder
+      const yearFolders = await driveClient.listFiles(config.googleDrive.folderId);
+      const yearFolder = yearFolders.find(f => f.name === config.googleDrive.year && f.mimeType === 'application/vnd.google-apps.folder');
+      
+      if (!yearFolder) {
+        console.error(`✗ Year folder "${config.googleDrive.year}" not found.`);
+        process.exit(1);
+      }
+
+      // Get folders inside year folder
+      const subFolders = await driveClient.listFiles(yearFolder.id);
+      const folders = subFolders.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
+
+      let sourceFolderId: string;
+      let sourceFolderName: string;
+      let targetSubDir: string;
+
+      if (options.backlog) {
+        const backlogsFolder = folders.find(f => f.name === 'Backlogs');
+        if (!backlogsFolder) {
+          console.error('✗ Backlogs folder not found.');
+          process.exit(1);
+        }
+        sourceFolderId = backlogsFolder.id;
+        sourceFolderName = 'Backlogs';
+        targetSubDir = 'backlogs';
+      } else if (options.sprint) {
+        const sprintFolder = folders.find(f => f.name === options.sprint);
+        if (!sprintFolder) {
+          console.error(`✗ Sprint folder "${options.sprint}" not found.`);
+          process.exit(1);
+        }
+        sourceFolderId = sprintFolder.id;
+        sourceFolderName = options.sprint;
+        targetSubDir = 'sprints';
+      } else {
+        // Let user select folder
+        const selected = await select({
+          message: 'Select source folder:',
+          choices: folders.map(f => ({ name: f.name, value: f.id })),
+        });
+        sourceFolderId = selected;
+        sourceFolderName = folders.find(f => f.id === selected)?.name || '';
+        targetSubDir = sourceFolderName.toLowerCase().includes('sprint') ? 'sprints' : 'backlogs';
+      }
+
+      // Get tasks from source folder
+      const tasks = await driveClient.listFiles(sourceFolderId);
+      const taskFolders = tasks.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
 
       if (taskFolders.length === 0) {
         console.error('✗ No tasks found.');
@@ -232,8 +280,10 @@ program
       }
 
       // Pull task
-      await artifact.pullTask(selectedTaskId, selectedTaskName, projectRoot);
+      const targetPath = join(projectRoot, '.sprint-artifact', targetSubDir);
+      await artifact.pullTask(selectedTaskId, selectedTaskName, targetPath);
       console.log(`✓ Pulled: ${selectedTaskName}`);
+      console.log(`  Location: .sprint-artifact/${targetSubDir}/${selectedTaskName}/`);
     } catch (error) {
       console.error('✗ Failed to pull:', error);
       process.exit(1);
