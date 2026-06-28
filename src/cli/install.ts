@@ -66,131 +66,97 @@ const MCP_CONFIGS: Record<Exclude<Assistant, 'skill'>, {
   },
 };
 
-const COMMAND_SKILLS: Record<string, string> = {
-  'sprint-artifact': `# Sprint Artifact — AI Assistant Integration
+interface SkillFrontmatter {
+  name: string;
+  description: string;
+  'disable-model-invocation'?: boolean;
+  license?: string;
+  metadata?: Record<string, string>;
+}
 
-Manage sprint artifacts (backlogs, tasks, documents) with Google Drive.
+function buildSkillYaml(frontmatter: SkillFrontmatter): string {
+  const lines: string[] = ['---'];
+  lines.push(`name: ${frontmatter.name}`);
+  lines.push(`description: "${frontmatter.description.replace(/"/g, '\\"')}"`);
+  if (frontmatter['disable-model-invocation']) {
+    lines.push('disable-model-invocation: true');
+  }
+  if (frontmatter.license) {
+    lines.push(`license: ${frontmatter.license}`);
+  }
+  if (frontmatter.metadata) {
+    lines.push('metadata:');
+    for (const [k, v] of Object.entries(frontmatter.metadata)) {
+      lines.push(`  ${k}: "${v}"`);
+    }
+  }
+  lines.push('---');
+  return lines.join('\n');
+}
 
-## Quick Reference
-- /sprint-artifact-init — Init project
-- /sprint-artifact-select — Select active task
-- /sprint-artifact-backlog-create — Create backlog
-- /sprint-artifact-pull — Pull task from Drive
-- /sprint-artifact-push — Push .planning/ to Drive
-- /sprint-artifact-sync — Bidirectional sync
-- /sprint-artifact-move — Move task to sprint
-- /sprint-artifact-status — Project status
+const SKILL_BODY = `# Sprint Artifact
 
-## MCP Tools Available
-list_folders, list_tasks, init_project, backlog_create, select_task, pull_task, push_files, sync_documents, move_to_sprint, status
+Manage sprint artifacts (backlogs, tasks, documents) with Google Drive integration.
+
+## When to Use
+
+- Creating a new backlog item and its folder structure
+- Selecting a task to work on (browse folders → pick task → auto-pull)
+- Pulling task files from Google Drive to local workspace
+- Pushing planning documents (.planning/) to an active task
+- Bidirectional sync between local and remote for active task
+- Moving a task between Backlogs and Sprint folders
+- Checking project configuration and active task status
+- Setting up a new project with Google Drive folder mapping
+
+## Available Commands
+
+Type \`/<command>\` in chat to invoke:
+
+- **/sprint-artifact-init** — Initialize project config: provides \`init_project\` MCP tool with folderId (root SprintArtifacts Drive folder), optional year, optional defaultFolderId
+- **/sprint-artifact-select** — Browse folders and select active task: use \`list_folders\` to browse year/subfolders, \`list_tasks\` to see tasks, then \`select_task\` with taskName, taskId, taskType. Auto-pulls to \`.sprint-artifact/<type>/<task>/\`
+- **/sprint-artifact-backlog-create** — Create backlog with 5-subfolder structure: use \`backlog_create\` with id (e.g. "IDS-123"), title, optional folderId. Creates 01-05 subfolders, auto-selects and pulls
+- **/sprint-artifact-pull** — Pull task from Drive: use \`list_folders\` and \`list_tasks\` to browse, then \`pull_task\` with taskId, taskName, taskType. Downloads to \`.sprint-artifact/<type>/<task>/\`
+- **/sprint-artifact-push** — Push .planning/ to active task: ensure task selected, use \`push_files\` with optional subfolder name. Auto-syncs after push
+- **/sprint-artifact-sync** — Bidirectional sync for active task: use \`sync_documents\` with no params. Pulls remote new files, uploads local new files
+- **/sprint-artifact-move** — Move task between Backlogs/Sprints: \`list_folders\` → \`list_tasks\` → \`move_to_sprint\` with taskFolderId, newParentFolderId, optional taskName. Local folder moves automatically
+- **/sprint-artifact-status** — Show project config and active task: use \`status\` with no params
+
+## MCP Tools
+
+| Tool | Params | Description |
+|------|--------|-------------|
+| \`list_folders\` | folderId? | List year folders or subfolders |
+| \`list_tasks\` | folderId | List tasks (backlog/sprint items) |
+| \`init_project\` | folderId, year?, defaultFolderId? | Initialize project config |
+| \`backlog_create\` | id, title, folderId? | Create backlog with subfolder structure |
+| \`select_task\` | taskName, taskId, taskType | Select active task and auto-pull |
+| \`pull_task\` | taskId, taskName, taskType | Pull task from Drive to local |
+| \`push_files\` | subfolder? | Push .planning/ to active task |
+| \`sync_documents\` | — | Bidirectional sync |
+| \`move_to_sprint\` | taskFolderId, newParentFolderId, taskName? | Move task folder |
+| \`status\` | — | Show config and active task |
 
 ## Folder Structure
-SprintArtifacts/ → 2026/ → Backlogs|Sprints/ → IDS-xxx Title/ → 01..05 subfolders
-Local: .sprint-artifact/backlogs|sprints/<task>/
-Push source: .planning/
-`,
 
-  'sprint-artifact-init': `# /sprint-artifact-init — Initialize Project
+\`\`\`
+SprintArtifacts/ → YYYY/ → Backlogs|Sprints/ → ID-Title/ → 01..05 subfolders
+\`\`\`
 
-Sets up Sprint Artifact config for this project.
+Local workspace: \`.sprint-artifact/backlogs|sprints/<task>/\`
+Push source: \`.planning/\`
+`;
 
-## Steps
-1. \`init_project\` — Call with folderId (root SprintArtifacts Drive folder)
-   - Optional: year (default: current year)
-   - Optional: defaultFolderId (default backlog folder)
-2. Config saved to .sprint-artifact/config.json
-`,
-
-  'sprint-artifact-select': `# /sprint-artifact-select — Select Active Task
-
-Browse and select a task to work on. Auto-pulls to local.
-
-## Steps
-1. \`list_folders\` — Browse year folders and subfolders
-2. \`list_tasks\` — List tasks in chosen folder
-3. \`select_task\` — Call with taskName, taskId, taskType
-4. Task is auto-pulled to .sprint-artifact/<type>/<task>/
-`,
-
-  'sprint-artifact-backlog-create': `# /sprint-artifact-backlog-create — Create Backlog
-
-Create a new backlog item with standardized folder structure. Auto-selects and auto-pulls.
-
-## Steps
-1. \`backlog_create\` — Call with id (e.g. "IDS-123"), title
-   - folderId is optional (uses default from config)
-2. Folder structure created in Drive:
-   - 01. Business Requirement Documents
-   - 02. Technical Documents
-   - 03. Testing Documents
-   - 04. User Acceptance Test Documents
-   - 05. Guide Documents
-3. Task auto-selected, pulled to .sprint-artifact/backlogs/<id> <title>/
-`,
-
-  'sprint-artifact-pull': `# /sprint-artifact-pull — Pull Task
-
-Download task files from Google Drive to local.
-
-## Steps
-1. \`list_folders\` — Browse to find the task
-2. \`list_tasks\` — List tasks in folder
-3. \`pull_task\` — Call with taskId, taskName, taskType (backlogs|sprints)
-4. Files downloaded to .sprint-artifact/<type>/<task>/
-`,
-
-  'sprint-artifact-push': `# /sprint-artifact-push — Push Files
-
-Upload .planning/ files to active task in Google Drive. Auto-syncs after push.
-
-## Steps
-1. Ensure active task is selected (select_task first)
-2. \`push_files\` — Call with optional subfolder:
-   - "01. Business Requirement Documents"
-   - "02. Technical Documents" (use —tech-docs)
-   - "03. Testing Documents"
-   - "04. User Acceptance Test Documents"
-   - "05. Guide Documents"
-   - Omit for interactive selection
-3. Auto-syncs after push
-`,
-
-  'sprint-artifact-sync': `# /sprint-artifact-sync — Sync Documents
-
-Bidirectional sync for active task: pull remote files, upload local new files.
-
-## Steps
-1. Ensure active task is selected
-2. \`sync_documents\` — No params needed
-3. Result shows added/updated/deleted counts
-`,
-
-  'sprint-artifact-move': `# /sprint-artifact-move — Move Task to Sprint
-
-Move a task folder between Backlogs and Sprint folders. Local folder moves automatically.
-
-## Steps
-1. \`list_folders\` — Browse to find source folder
-2. \`list_tasks\` — List tasks in source folder
-3. \`move_to_sprint\` — Call with taskFolderId, newParentFolderId
-   - Optional: taskName (for local folder move)
-4. Local folder moves from .sprint-artifact/backlogs/ to sprints/
-`,
-
-  'sprint-artifact-status': `# /sprint-artifact-status — Project Status
-
-Show current project configuration and active task details.
-
-## Steps
-1. \`status\` — No params needed
-2. Returns: rootFolderId, year, selectedTask, lastSync, fileCount, etc.
-`,
-};
-
-const ASSISTANT_SKILL_DIRS: Record<string, string> = {
-  cursor: '.cursor/rules/sprint-artifact',
-  claude: '.claude/skills/sprint-artifact',
-};
+function skillContent(extraFrontmatter: Partial<SkillFrontmatter> = {}): string {
+  const fm: SkillFrontmatter = {
+    name: 'sprint-artifact',
+    description: 'Manage sprint artifacts (backlogs, tasks, documents) with Google Drive. Commands: init, select, backlog create, pull, push, sync, sprint move, status. MCP tools: list_folders, list_tasks, init_project, backlog_create, select_task, pull_task, push_files, sync_documents, move_to_sprint, status. USE FOR: creating backlogs, selecting tasks, pushing planning docs, syncing with Google Drive, moving tasks to sprints, viewing project status. DO NOT USE FOR: general document editing, team chat, project management outside of artifact workflow.',
+    license: 'MIT',
+    metadata: { version: '0.6.1' },
+    ...extraFrontmatter,
+  };
+  return buildSkillYaml(fm) + '\n\n' + SKILL_BODY;
+}
 
 function mergeConfig(existing: Record<string, unknown>, update: Record<string, unknown>): Record<string, unknown> {
   const merged = { ...existing };
@@ -231,58 +197,11 @@ function installMcpConfig(projectRoot: string, name: Assistant): void {
   console.log(`✓ Created: ${cfg.path}  (${cfg.description})`);
 }
 
-function installSkills(projectRoot: string, targetDir: string, label: string): void {
-  const dir = join(projectRoot, targetDir);
+function installSkillToDir(dir: string, extraFrontmatter: Partial<SkillFrontmatter> = {}): void {
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
-  for (const [name, content] of Object.entries(COMMAND_SKILLS)) {
-    const skillFile = `${name}.md`;
-    const fullPath = join(dir, skillFile);
-    writeFileSync(fullPath, content);
-  }
-  console.log(`✓ Skills injected (${Object.keys(COMMAND_SKILLS).length} files): ${targetDir}/`);
-}
-
-function installOpencodeSkill(rootDir: string): void {
-  const targetDir = join(rootDir, '.agents', 'skills', 'sprint-artifact');
-  if (!existsSync(targetDir)) {
-    mkdirSync(targetDir, { recursive: true });
-  }
-  const skillContent = `---
-name: sprint-artifact
-description: "Manage sprint artifacts (backlogs, tasks, documents) with Google Drive. Commands: init, select, backlog create, pull, push, sync, sprint move, status. MCP tools: list_folders, list_tasks, init_project, backlog_create, select_task, pull_task, push_files, sync_documents, move_to_sprint, status. USE FOR: creating backlogs, selecting tasks, pushing planning docs, syncing with Google Drive, moving tasks to sprints, viewing project status. DO NOT USE FOR: general document editing, team chat, project management outside of artifact workflow."
-license: MIT
-metadata:
-  version: "0.6.1"
----
-
-# Sprint Artifact
-
-Manage sprint artifacts (backlogs, tasks, documents) with Google Drive integration.
-
-## Available Commands
-
-- **/sprint-artifact-init** — Initialize project config (folder ID, year, default backlog folder)
-- **/sprint-artifact-select** — Browse folders, pick task, auto-pull to local
-- **/sprint-artifact-backlog-create** — Create backlog with 5-subfolder structure
-- **/sprint-artifact-pull** — Pull task files from Drive to local
-- **/sprint-artifact-push** — Push .planning/ files to active task in Drive
-- **/sprint-artifact-sync** — Bidirectional sync for active task
-- **/sprint-artifact-move** — Move task between Backlogs and Sprint folders
-- **/sprint-artifact-status** — Show project config and active task
-
-## MCP Tools
-list_folders, list_tasks, init_project, backlog_create, select_task, pull_task, push_files, sync_documents, move_to_sprint, status
-
-## Folder Structure
-\`\`\`
-SprintArtifacts/ → YYYY/ → Backlogs|Sprints/ → ID-Title/ → 01..05 subfolders
-\`\`\`
-`;
-
-  writeFileSync(join(targetDir, 'SKILL.md'), skillContent);
-  console.log(`✓ Opencode skill installed: ${targetDir}/SKILL.md`);
+  writeFileSync(join(dir, 'SKILL.md'), skillContent(extraFrontmatter));
 }
 
 export async function install(projectRoot: string, assistant?: string): Promise<void> {
@@ -294,30 +213,46 @@ export async function install(projectRoot: string, assistant?: string): Promise<
     : allAssistants;
 
   for (const name of assistants) {
-    if (name === 'skill') {
-      installSkills(projectRoot, '.sprint-artifact/skills/sprint-artifact', 'canonical');
-      continue;
-    }
-
-    if (name === 'opencode') {
-      installMcpConfig(projectRoot, 'opencode');
-      const home = homedir();
-      installOpencodeSkill(home);
-      continue;
-    }
-
-    installMcpConfig(projectRoot, name);
-
-    if (name in ASSISTANT_SKILL_DIRS) {
-      installSkills(projectRoot, (ASSISTANT_SKILL_DIRS as Record<string, string>)[name], name);
+    switch (name) {
+      case 'opencode':
+        installMcpConfig(projectRoot, 'opencode');
+        installSkillToDir(
+          join(homedir(), '.agents', 'skills', 'sprint-artifact')
+        );
+        console.log('  → ~/.agents/skills/sprint-artifact/SKILL.md');
+        break;
+      case 'cursor':
+        installMcpConfig(projectRoot, 'cursor');
+        installSkillToDir(
+          join(projectRoot, '.cursor', 'skills', 'sprint-artifact'),
+          { 'disable-model-invocation': true }
+        );
+        console.log('  → .cursor/skills/sprint-artifact/SKILL.md');
+        break;
+      case 'claude':
+        installMcpConfig(projectRoot, 'claude');
+        installSkillToDir(
+          join(projectRoot, '.claude', 'skills', 'sprint-artifact')
+        );
+        console.log('  → .claude/skills/sprint-artifact/SKILL.md');
+        break;
+      case 'copilot':
+        installMcpConfig(projectRoot, 'copilot');
+        break;
+      case 'skill':
+        installSkillToDir(
+          join(projectRoot, '.sprint-artifact', 'skills', 'sprint-artifact')
+        );
+        console.log('  → .sprint-artifact/skills/sprint-artifact/SKILL.md');
+        break;
     }
   }
 
   console.log('');
   console.log('Next steps:');
-  if (assistants.includes('cursor')) console.log('  - Cursor: Restart Cursor or run Cmd+Shift+P > Reload Window');
+  if (assistants.includes('cursor')) console.log('  - Cursor: Type /sprint-artifact in Agent chat, or restart Cursor');
   if (assistants.includes('claude')) console.log('  - Claude Code: Run `claude mcp list` to verify connection');
-  if (assistants.includes('opencode')) console.log('  - OpenCode: Restart session, skill loaded from ~/.agents/skills/sprint-artifact/');
+  if (assistants.includes('opencode')) console.log('  - OpenCode: Restart session, type /sprint-artifact to invoke');
   if (assistants.includes('copilot')) console.log('  - Copilot: Restart VS Code to load MCP server');
-  if (assistants.includes('skill')) console.log('  - AI assistant: Reference .sprint-artifact/skills/sprint-artifact/');
+  if (assistants.includes('skill')) console.log('  - Reference .sprint-artifact/skills/sprint-artifact/');
 }
