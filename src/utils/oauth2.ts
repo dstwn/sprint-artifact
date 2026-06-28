@@ -8,8 +8,6 @@ import open from 'open';
 import type { OAuth2Credentials } from '../types/index.js';
 
 const SCOPES = ['https://www.googleapis.com/auth/drive'];
-const REDIRECT_PORT = 3000;
-const REDIRECT_URI = `http://localhost:${REDIRECT_PORT}/callback`;
 
 const GLOBAL_CONFIG_DIR = join(homedir(), '.sprint-artifact');
 const GLOBAL_CREDENTIALS_FILE = join(GLOBAL_CONFIG_DIR, 'credentials.json');
@@ -89,10 +87,18 @@ export async function login(options?: {
     }
   }
 
+  // Get a random available port
+  const server = createServer();
+  await new Promise<void>((resolve) => server.listen(0, resolve));
+  const port = (server.address() as any).port;
+  server.close();
+
+  const redirectUri = `http://localhost:${port}/callback`;
+
   const oauth2Client = new google.auth.OAuth2(
     clientId,
     clientSecret,
-    REDIRECT_URI
+    redirectUri
   );
 
   const authUrl = oauth2Client.generateAuthUrl({
@@ -102,8 +108,8 @@ export async function login(options?: {
   });
 
   return new Promise((resolve, reject) => {
-    const server = createServer(async (req, res) => {
-      const url = new URL(req.url!, `http://localhost:${REDIRECT_PORT}`);
+    const callbackServer = createServer(async (req, res) => {
+      const url = new URL(req.url!, `http://localhost:${port}`);
 
       if (url.pathname === '/callback') {
         const code = url.searchParams.get('code');
@@ -112,7 +118,7 @@ export async function login(options?: {
         if (error) {
           res.writeHead(400, { 'Content-Type': 'text/html' });
           res.end(`<h1>Error</h1><p>${error}</p>`);
-          server.close();
+          callbackServer.close();
           reject(new Error(`OAuth error: ${error}`));
           return;
         }
@@ -120,7 +126,7 @@ export async function login(options?: {
         if (!code) {
           res.writeHead(400, { 'Content-Type': 'text/html' });
           res.end('<h1>Error</h1><p>No code received</p>');
-          server.close();
+          callbackServer.close();
           reject(new Error('No authorization code received'));
           return;
         }
@@ -131,7 +137,7 @@ export async function login(options?: {
           const credentials: OAuth2Credentials = {
             client_id: clientId!,
             client_secret: clientSecret!,
-            redirect_uris: [REDIRECT_URI],
+            redirect_uris: [redirectUri],
             refresh_token: tokens.refresh_token || undefined,
             access_token: tokens.access_token || undefined,
             token_expiry: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : undefined,
@@ -147,12 +153,12 @@ export async function login(options?: {
             </html>
           `);
 
-          server.close();
+          callbackServer.close();
           resolve(credentials);
         } catch (err) {
           res.writeHead(500, { 'Content-Type': 'text/html' });
           res.end('<h1>Error</h1><p>Failed to get tokens</p>');
-          server.close();
+          callbackServer.close();
           reject(err);
         }
       } else {
@@ -161,14 +167,14 @@ export async function login(options?: {
       }
     });
 
-    server.listen(REDIRECT_PORT, () => {
-      console.log('Opening browser for login...');
+    callbackServer.listen(port, () => {
+      console.log(`Opening browser for login (port ${port})...`);
       open(authUrl).catch(() => {
         console.log(`\nOpen this URL manually:\n${authUrl}\n`);
       });
     });
 
-    server.on('error', (err) => {
+    callbackServer.on('error', (err) => {
       reject(err);
     });
   });
