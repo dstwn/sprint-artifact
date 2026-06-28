@@ -141,11 +141,16 @@ Tambahkan ke konfigurasi MCP (Cursor, Claude, dll):
 
 | Tool | Description |
 |------|-------------|
-| `backlog_create` | Buat backlog item + auto-select + auto-pull ke local (folderId opsional) |
-| `sync_documents` | Sync bidirectional dari active task (pull remote + upload local baru) |
-| `move_to_sprint` | Pindahkan task ke folder lain (local folder ikut pindah) |
-| `status` | Lihat status project (detail ID folder) |
-| `select_task` | Pilih task yang sedang dikerjakan (auto-pull) |
+| `list_folders` | Lihat struktur folder tahun + subfolder (Backlogs/Sprints) |
+| `list_tasks` | Lihat daftar task dalam folder |
+| `backlog_create` | Buat backlog item + auto-select + auto-pull (folderId opsional) |
+| `select_task` | Pilih task aktif (auto-pull ke local) |
+| `pull_task` | Pull task dari Google Drive ke local |
+| `push_files` | Push .planning ke task aktif (opsional subfolder) |
+| `sync_documents` | Sync bidirectional dari active task |
+| `move_to_sprint` | Pindahkan task + local folder ikut pindah |
+| `init_project` | Initialize project Sprint Artifact |
+| `status` | Lihat status project |
 
 ## SDK Usage
 
