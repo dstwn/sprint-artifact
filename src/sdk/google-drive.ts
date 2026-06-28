@@ -38,6 +38,21 @@ export class GoogleDriveClient {
     }
   }
 
+  async listFiles(folderId: string): Promise<ManifestFile[]> {
+    const query = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
+    const url = `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id, name, mimeType, modifiedTime, md5Checksum)&pageSize=1000&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+    
+    const data = await this.request('GET', url);
+    
+    return (data.files || []).map((file: any) => ({
+      id: file.id,
+      name: file.name,
+      mimeType: file.mimeType,
+      modifiedTime: file.modifiedTime,
+      md5Checksum: file.md5Checksum || undefined,
+    }));
+  }
+
   async createFolder(name: string, parentId?: string): Promise<string> {
     const body: any = {
       name,
@@ -47,7 +62,7 @@ export class GoogleDriveClient {
       body.parents = [parentId];
     }
 
-    const data = await this.request('POST', 'https://www.googleapis.com/drive/v3/files?fields=id', body);
+    const data = await this.request('POST', 'https://www.googleapis.com/drive/v3/files?fields=id&supportsAllDrives=true', body);
     return data.id;
   }
 
@@ -72,7 +87,7 @@ export class GoogleDriveClient {
     ].join('\r\n');
 
     try {
-      const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+      const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id&supportsAllDrives=true', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.accessToken}`,
@@ -84,7 +99,7 @@ export class GoogleDriveClient {
       return data.id;
     } catch {
       const result = execSync(
-        `curl -s -X POST "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id" -H "Authorization: Bearer ${this.accessToken}" -H "Content-Type: multipart/related; boundary=${boundary}" -d '${multipartBody.replace(/'/g, "\\'")}'`,
+        `curl -s -X POST "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id&supportsAllDrives=true" -H "Authorization: Bearer ${this.accessToken}" -H "Content-Type: multipart/related; boundary=${boundary}" -d '${multipartBody.replace(/'/g, "\\'")}'`,
         { encoding: 'utf-8' }
       );
       return JSON.parse(result).id;
@@ -114,21 +129,6 @@ export class GoogleDriveClient {
     }
   }
 
-  async listFiles(folderId: string): Promise<ManifestFile[]> {
-    const query = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
-    const url = `https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id, name, mimeType, modifiedTime, md5Checksum)&pageSize=1000`;
-    
-    const data = await this.request('GET', url);
-    
-    return (data.files || []).map((file: any) => ({
-      id: file.id,
-      name: file.name,
-      mimeType: file.mimeType,
-      modifiedTime: file.modifiedTime,
-      md5Checksum: file.md5Checksum || undefined,
-    }));
-  }
-
   async getFileMetadata(fileId: string): Promise<ManifestFile> {
     const url = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id, name, mimeType, modifiedTime, md5Checksum`;
     const file = await this.request('GET', url);
@@ -151,7 +151,7 @@ export class GoogleDriveClient {
       ? `name = '${name}' and '${parentId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`
       : `name = '${name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
 
-    const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)&pageSize=1`;
+    const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)&pageSize=1&supportsAllDrives=true&includeItemsFromAllDrives=true`;
     const data = await this.request('GET', url);
 
     return data.files?.[0]?.id || null;
