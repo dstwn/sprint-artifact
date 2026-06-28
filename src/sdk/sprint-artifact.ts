@@ -74,13 +74,30 @@ export class SprintArtifact {
     await this.driveClient!.createFolder('04. User Acceptance Test Documents', taskFolderId);
     await this.driveClient!.createFolder('05. Guide Documents', taskFolderId);
 
-    // Copy BRD template if exists
-    const brdTemplatePath = join(this.projectRoot, 'docs', 'brd');
-    if (existsSync(brdTemplatePath)) {
-      // TODO: Copy template files
-    }
+    // Auto-select as active task
+    this.config!.selectedTask = folderName;
+    this.config!.selectedTaskId = taskFolderId;
+    this.config!.selectedTaskFolderId = taskFolderId;
+    this.config!.selectedTaskType = 'backlogs';
 
-    await this.syncManifest();
+    // Pull task locally
+    const localPath = join(this.projectRoot, '.sprint-artifact', 'backlogs');
+    if (!existsSync(localPath)) {
+      mkdirSync(localPath, { recursive: true });
+    }
+    const taskPath = join(localPath, folderName);
+    mkdirSync(taskPath, { recursive: true });
+
+    // Pull subfolders
+    await this.pullFolder(taskFolderId, taskPath);
+
+    // Sync manifest from task folder
+    const remoteFiles = await this.getAllFilesRecursive(taskFolderId);
+    this.config!.manifest = {
+      lastSync: new Date().toISOString(),
+      files: remoteFiles,
+    };
+    await saveConfig(this.projectRoot, this.config!);
   }
 
   async sync(): Promise<{ added: number; updated: number; deleted: number }> {

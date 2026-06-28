@@ -285,9 +285,10 @@ backlogCmd
       const title = options.title || await input({ message: 'Enter task title:', required: true });
 
       await artifact.createBacklog(id, title, config.googleDrive.defaultFolderId);
-      console.log('✓ Backlog item created');
+      console.log('✓ Backlog item created and selected');
       console.log(`  ID: ${id}`);
       console.log(`  Title: ${title}`);
+      console.log(`  Synced to: .sprint-artifact/backlogs/${id} ${title}/`);
     } catch (error) {
       console.error('✗ Failed to create backlog item:', error);
       process.exit(1);
