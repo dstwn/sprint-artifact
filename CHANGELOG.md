@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-06-28
+
+### Added
+- Interactive year selection from Google Drive folders
+- Interactive folder selection during init
+- Backlog create with folder structure (5 subfolders)
+- Shared Drive support (`supportsAllDrives`)
+- Curl fallback for API calls (fix node-fetch issues)
+- Default folder saved in config
+
+### Changed
+- `backlog create` requires `--id` and `--title` (removed `--description`, `--priority`)
+- `init` now asks for year and default folder interactively
+- Google Drive client uses native fetch + curl fallback
+
+### Fixed
+- OAuth2 token exchange using curl fallback
+- Network timeout issues with node-fetch
+- Shared Drive file creation
+
 ## [0.2.0] - 2026-06-28
 
 ### Added

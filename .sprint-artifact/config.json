@@ -2,10 +2,11 @@
   "version": 1,
   "googleDrive": {
     "folderId": "1xCOKhYs3MIpJiCxU9upYKbVM8tKn0UI8",
-    "year": "2026"
+    "year": "2026",
+    "defaultFolderId": "1j33uAgdHxq8TsduZNzCaWjFXaTkGZ4KR"
   },
   "manifest": {
-    "lastSync": "2026-06-28T15:28:03.305Z",
+    "lastSync": "2026-06-28T15:34:44.850Z",
     "files": [
       {
         "id": "1ZAU-Ku55XVt-q1cL203DkEv1JWi0f_AFEuVWPpuCmMo",
