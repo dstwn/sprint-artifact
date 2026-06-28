@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import type {
   SprintArtifactConfig,
   AuthConfig,
@@ -115,56 +115,59 @@ export class SprintArtifact {
       mkdirSync(taskPath, { recursive: true });
     }
 
-    // Recursively pull task folder (handles subfolder hierarchy)
+    // Step 1: Pull all remote files (download to local)
     await this.pullFolder(this.config!.selectedTaskId, taskPath);
 
-    // Build remote manifest from task folder for stats
-    const remoteFiles = await this.getAllFilesRecursive(this.config!.selectedTaskId);
-    const remoteCount = remoteFiles.length;
+    // Step 2: Pull all remote files (download to local)
+    await this.pullFolder(this.config!.selectedTaskId, taskPath);
 
-    // Count local files
-    let localCount = 0;
-    this.countLocalFilesRecursive(taskPath, () => localCount++);
+    // Step 3: Upload local files not on remote
+    let uploaded = 0;
+    await this.uploadLocalFiles(taskPath, this.config!.selectedTaskId, () => uploaded++);
 
-    const added = remoteCount > localCount ? remoteCount - localCount : 0;
-
-    // Update manifest
+    // Step 4: Update manifest
+    const allRemoteFiles = await this.getAllFilesRecursive(this.config!.selectedTaskId);
     this.config!.manifest = {
       lastSync: new Date().toISOString(),
-      files: remoteFiles,
+      files: allRemoteFiles,
     };
     await saveConfig(this.projectRoot, this.config!);
 
-    return { added, updated: 0, deleted: 0 };
+    let localCount = 0;
+    this.countLocalFilesRecursive(taskPath, () => localCount++);
+
+    return { added: allRemoteFiles.length - localCount + uploaded, updated: 0, deleted: 0 };
   }
 
-  private getLocalFiles(dir: string): { id: string; name: string; modifiedTime: string; md5Checksum?: string }[] {
-    const files: { id: string; name: string; modifiedTime: string; md5Checksum?: string }[] = [];
-    const manifest = this.config?.manifest;
-    if (!manifest) return files;
+  private async uploadLocalFiles(
+    localDir: string,
+    remoteParentId: string,
+    onUpload: () => void,
+  ): Promise<void> {
+    const items = readdirSync(localDir);
+    const remoteItems = await this.driveClient!.listFiles(remoteParentId);
 
-    try {
-      const items = readdirSync(dir);
-      for (const item of items) {
-        const itemPath = join(dir, item);
-        const stat = statSync(itemPath);
-        if (stat.isFile()) {
-          // Match against manifest to get id
-          const manifestFile = manifest.files.find((f) => f.name === item);
-          if (manifestFile) {
-            files.push({
-              id: manifestFile.id,
-              name: item,
-              modifiedTime: stat.mtime.toISOString(),
-              md5Checksum: manifestFile.md5Checksum,
-            });
-          }
+    for (const item of items) {
+      const itemPath = join(localDir, item);
+      const stat = statSync(itemPath);
+
+      if (stat.isDirectory()) {
+        const subfolder = remoteItems.find(
+          f => f.name === item && f.mimeType === 'application/vnd.google-apps.folder',
+        );
+        const subfolderId = subfolder
+          ? subfolder.id
+          : await this.driveClient!.createFolder(item, remoteParentId);
+        await this.uploadLocalFiles(itemPath, subfolderId, onUpload);
+      } else if (stat.isFile()) {
+        const exists = remoteItems.some(f => f.name === item && f.mimeType !== 'application/vnd.google-apps.folder');
+        if (!exists) {
+          const content = readFileSync(itemPath, 'utf-8');
+          await this.driveClient!.createFile(item, content, remoteParentId);
+          onUpload();
         }
       }
-    } catch {
-      // Directory doesn't exist yet
     }
-    return files;
   }
 
   private async downloadFile(fileId: string, targetDir: string, fileName: string): Promise<void> {
