@@ -111,6 +111,7 @@ sprint-artifact status
 
 | Command | Description |
 |---------|-------------|
+| `mcp` | Run MCP server untuk AI assistant integration |
 | `login` | Login dengan Google account |
 | `init` | Initialize project (pilih tahun & folder) |
 | `select` | Pilih active task + auto pull ke local |

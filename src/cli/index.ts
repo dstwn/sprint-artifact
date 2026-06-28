@@ -534,4 +534,12 @@ sprintCmd
     }
   });
 
+program
+  .command('mcp')
+  .description('Run MCP server for AI assistant integration')
+  .action(async () => {
+    const { main } = await import('../mcp/index.js');
+    await main();
+  });
+
 program.parse();

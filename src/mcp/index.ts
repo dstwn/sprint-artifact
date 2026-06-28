@@ -200,10 +200,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 });
 
-async function main() {
+export async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error('Sprint Artifact MCP server running on stdio');
 }
 
-main().catch(console.error);
+const isDirectRun = process.argv[1]?.endsWith('mcp/index.js') || process.argv[1]?.endsWith('mcp/index');
+if (isDirectRun) {
+  main().catch(console.error);
+}
