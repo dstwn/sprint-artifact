@@ -1,4 +1,3 @@
-import { google } from 'googleapis';
 import { createServer } from 'node:http';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -20,7 +19,6 @@ const COMMON_CREDENTIALS_PATHS = [
 ];
 
 export async function findCredentials(): Promise<{ clientId: string; clientSecret: string } | null> {
-  // Check global config first
   if (existsSync(GLOBAL_CREDENTIALS_FILE)) {
     try {
       const content = JSON.parse(await readFile(GLOBAL_CREDENTIALS_FILE, 'utf-8'));
@@ -31,7 +29,6 @@ export async function findCredentials(): Promise<{ clientId: string; clientSecre
     } catch {}
   }
 
-  // Check common paths in current directory
   for (const path of COMMON_CREDENTIALS_PATHS) {
     if (existsSync(path)) {
       try {
@@ -55,6 +52,45 @@ export async function saveCredentialsGlobal(credentialsPath: string): Promise<vo
   await writeFile(GLOBAL_CREDENTIALS_FILE, content, 'utf-8');
 }
 
+async function exchangeCodeForTokens(code: string, clientId: string, clientSecret: string, redirectUri: string): Promise<OAuth2Credentials> {
+  const body = new URLSearchParams({
+    code,
+    client_id: clientId,
+    client_secret: clientSecret,
+    redirect_uri: redirectUri,
+    grant_type: 'authorization_code',
+  });
+
+  let data: any;
+
+  try {
+    const res = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      body,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+    data = await res.json();
+  } catch {
+    // Fallback to curl if fetch fails
+    const { execSync } = await import('node:child_process');
+    const result = execSync(`curl -s -X POST https://oauth2.googleapis.com/token -d "${body.toString()}"`, { encoding: 'utf-8' });
+    data = JSON.parse(result);
+  }
+  
+  if (data.error) {
+    throw new Error(`OAuth error: ${data.error} - ${data.error_description}`);
+  }
+
+  return {
+    client_id: clientId,
+    client_secret: clientSecret,
+    redirect_uris: [redirectUri],
+    refresh_token: data.refresh_token || undefined,
+    access_token: data.access_token || undefined,
+    token_expiry: data.expires_in ? new Date(Date.now() + data.expires_in * 1000).toISOString() : undefined,
+  };
+}
+
 export async function login(options?: {
   clientId?: string;
   clientSecret?: string;
@@ -63,7 +99,6 @@ export async function login(options?: {
   let clientId = options?.clientId;
   let clientSecret = options?.clientSecret;
 
-  // If credentials path provided, read and save globally
   if (options?.credentialsPath) {
     const content = JSON.parse(await readFile(options.credentialsPath, 'utf-8'));
     const creds = content.installed || content.web;
@@ -73,7 +108,6 @@ export async function login(options?: {
     console.log('✓ Credentials saved globally');
   }
 
-  // Auto-detect if not provided
   if (!clientId || !clientSecret) {
     const detected = await findCredentials();
     if (detected) {
@@ -87,25 +121,9 @@ export async function login(options?: {
     }
   }
 
-  // Get a random available port
-  const server = createServer();
-  await new Promise<void>((resolve) => server.listen(0, resolve));
-  const port = (server.address() as any).port;
-  server.close();
-
   const redirectUri = `http://localhost`;
 
-  const oauth2Client = new google.auth.OAuth2(
-    clientId,
-    clientSecret,
-    redirectUri
-  );
-
-  const authUrl = oauth2Client.generateAuthUrl({
-    access_type: 'offline',
-    scope: SCOPES,
-    prompt: 'consent',
-  });
+  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(SCOPES[0])}&access_type=offline&prompt=consent`;
 
   return new Promise((resolve, reject) => {
     const callbackServer = createServer(async (req, res) => {
@@ -131,16 +149,7 @@ export async function login(options?: {
       }
 
       try {
-        const { tokens } = await oauth2Client.getToken(code);
-
-        const credentials: OAuth2Credentials = {
-          client_id: clientId!,
-          client_secret: clientSecret!,
-          redirect_uris: [redirectUri],
-          refresh_token: tokens.refresh_token || undefined,
-          access_token: tokens.access_token || undefined,
-          token_expiry: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : undefined,
-        };
+        const credentials = await exchangeCodeForTokens(code, clientId!, clientSecret!, redirectUri);
 
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.end(`
@@ -162,10 +171,45 @@ export async function login(options?: {
       }
     });
 
-    callbackServer.listen(port, () => {
-      console.log(`Opening browser for login (port ${port})...`);
+    callbackServer.listen(0, () => {
+      const addr = callbackServer.address();
+      const listenPort = typeof addr === 'object' && addr ? addr.port : 0;
+      console.log(`Opening browser for login (port ${listenPort})...`);
+      console.log('\nAfter login, copy the URL from browser and paste here:');
       open(authUrl).catch(() => {
         console.log(`\nOpen this URL manually:\n${authUrl}\n`);
+      });
+
+      process.stdin.setEncoding('utf-8');
+      process.stdin.resume();
+      process.stdin.on('data', async (data: string) => {
+        const input = data.toString().trim();
+        if (!input) return;
+
+        try {
+          const url = new URL(input);
+          const code = url.searchParams.get('code');
+          const error = url.searchParams.get('error');
+
+          if (error) {
+            callbackServer.close();
+            reject(new Error(`OAuth error: ${error}`));
+            return;
+          }
+
+          if (code) {
+            try {
+              const credentials = await exchangeCodeForTokens(code, clientId!, clientSecret!, redirectUri);
+              callbackServer.close();
+              resolve(credentials);
+            } catch (err) {
+              callbackServer.close();
+              reject(err);
+            }
+          }
+        } catch (err) {
+          // Invalid URL, ignore
+        }
       });
     });
 
