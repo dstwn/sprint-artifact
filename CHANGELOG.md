@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] - 2026-06-28
+
+### Added
+- `sprint move` - interactive move task antar folder (Backlogs ↔ Sprint)
+- `selectedTaskType` di config (backlogs/sprints)
+- Auto token refresh - tidak perlu login ulang saat token expired
+- Auto pull setelah push - sync local dengan GDrive
+
+### Changed
+- `sprint move` sekarang interactive (pilih source, task, destination)
+- `push` otomatis pull ke local setelah berhasil upload
+- `select` simpan task type (backlogs/sprints)
+- Google Drive client support token refresh on 401
+
+### Fixed
+- Folder structure ter-pull saat pull task (recursive)
+- Config update saat move task ke folder lain
+
 ## [0.5.0] - 2026-06-28
 
 ### Added

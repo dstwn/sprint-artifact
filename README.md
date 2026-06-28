@@ -11,6 +11,7 @@ Manage your sprint artifacts (BRD, PRD, tasks, backlogs) directly from CLI or AI
 - **SDK** - Programmatic access for custom workflows
 - **Google Drive Sync** - Bi-directional sync with Google Drive (Shared Drive supported)
 - **OAuth2 Login** - Simple Google account login for team members
+- **Auto Token Refresh** - Seamless token management
 - **Interactive Setup** - Year and folder selection from Google Drive
 
 ## Quick Start
@@ -78,9 +79,22 @@ sprint-artifact pull                          # interactive
 sprint-artifact pull --backlog                # dari Backlogs
 sprint-artifact pull --sprint "Sprint 1"      # dari Sprint
 
-# Push file dari local ke Google Drive
-sprint-artifact push --tech-docs              # push .planning/ ke 02. Technical Documents/
+# Push file dari local ke Google Drive (auto pull setelah push)
+sprint-artifact push                          # interactive
+sprint-artifact push --tech-docs              # langsung ke 02. Technical Documents
 ```
+
+### Move Task
+
+```bash
+# Pindahkan task antar folder (interactive)
+sprint-artifact sprint move
+```
+
+Interactive prompts:
+1. **Select source folder** - Backlogs/Sprint 1/etc
+2. **Select task** - task yang akan dipindah
+3. **Select destination** - folder tujuan
 
 ### Sync & Status
 
@@ -92,13 +106,6 @@ sprint-artifact sync
 sprint-artifact status
 ```
 
-### Sprint Management
-
-```bash
-# Pindahkan backlog ke sprint
-sprint-artifact sprint move --backlog-id IDS-123 --sprint-id "Sprint 1"
-```
-
 ## Command Reference
 
 | Command | Description |
@@ -108,10 +115,10 @@ sprint-artifact sprint move --backlog-id IDS-123 --sprint-id "Sprint 1"
 | `select` | Pilih active task + auto pull ke local |
 | `backlog create` | Buat backlog item dengan folder structure |
 | `pull` | Pull task dari Google Drive ke local |
-| `push` | Push file dari local ke Google Drive |
+| `push` | Push file dari local ke Google Drive + auto pull |
+| `sprint move` | Pindahkan task antar folder (interactive) |
 | `sync` | Sync manifest dengan Google Drive |
 | `status` | Lihat status project |
-| `sprint move` | Pindahkan backlog ke sprint |
 
 ## MCP Server
 
@@ -134,7 +141,7 @@ Tambahkan ke konfigurasi MCP (Cursor, Claude, dll):
 |------|-------------|
 | `backlog_create` | Buat backlog item dengan folder structure |
 | `sync_documents` | Sync dokumen dengan Google Drive |
-| `move_to_sprint` | Pindahkan backlog ke sprint |
+| `move_to_sprint` | Pindahkan task ke folder lain |
 | `status` | Lihat status project |
 | `select_task` | Pilih task yang sedang dikerjakan |
 
@@ -149,16 +156,19 @@ const artifact = new SprintArtifact(process.cwd());
 await artifact.init('GOOGLE_DRIVE_FOLDER_ID', '2026', 'BACKLOGS_FOLDER_ID');
 
 // Select task (auto pull ke local)
-await artifact.selectTask('IDS-123 Fix login bug', 'folder-id', 'parent-folder-id');
+await artifact.selectTask('IDS-123 Fix login bug', 'folder-id', 'parent-folder-id', 'backlogs');
 
 // Buat backlog
 await artifact.createBacklog('IDS-123', 'Fix login bug', 'FOLDER_ID');
 
-// Push tech docs
-await artifact.pushTechDocs();
+// Push tech docs (auto pull setelah push)
+await artifact.pushToFolder('target-folder-id');
 
 // Pull task
 await artifact.pullTask('task-folder-id', 'IDS-123 Fix login bug', './local-path');
+
+// Move task ke folder lain
+await artifact.moveToSprint('task-folder-id', 'new-parent-folder-id');
 
 // Sync manifest
 const result = await artifact.sync();
@@ -179,6 +189,7 @@ const result = await artifact.sync();
   "selectedTask": "IDS-123 Fix login bug",
   "selectedTaskId": "task-folder-id",
   "selectedTaskFolderId": "parent-folder-id",
+  "selectedTaskType": "backlogs",
   "manifest": {
     "lastSync": "2026-06-28T10:00:00Z",
     "files": []
@@ -195,7 +206,7 @@ Auto-generated saat login. Jangan commit ke repository.
 ```
 .sprint-artifact/
 ├── config.json         # Project config
-├── auth.json           # OAuth2 tokens (auto-generated)
+├── auth.json           # OAuth2 tokens (auto-generated, auto-refresh)
 ├── backlogs/           # Pulled backlog tasks (auto dari select)
 │   └── IDS-123 Fix login bug/
 │       ├── 01. Business Requirement Documents/
@@ -240,8 +251,8 @@ sprint-artifact select
 
 # 2. Edit file di local (.sprint-artifact/backlogs/...)
 
-# 3. Push perubahan ke Google Drive
-sprint-artifact push --tech-docs
+# 3. Push perubahan ke Google Drive (otomatis pull balik)
+sprint-artifact push
 
 # 4. Sync manifest
 sprint-artifact sync
@@ -260,11 +271,22 @@ sprint-artifact select
 sprint-artifact push --tech-docs
 ```
 
+### Move Task to Sprint
+
+```bash
+# 1. Move task dari Backlogs ke Sprint (interactive)
+sprint-artifact sprint move
+
+# 2. Select task yang sudah dipindah
+sprint-artifact select
+```
+
 ## Security
 
 - `auth.json` dan `credentials.json` di-**gitignore** secara default
 - Setiap user login dengan akun Google masing-masing
 - Token tersimpan lokal di tiap komputer
+- **Auto token refresh** - tidak perlu login ulang
 - Untuk team, share `credentials.json` via internal docs (bukan public repo)
 - Support **Shared Drive** (Google Workspace)
 
