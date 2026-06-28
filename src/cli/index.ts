@@ -98,7 +98,45 @@ backlogCmd
     try {
       const projectRoot = resolve(process.cwd());
       const artifact = new SprintArtifact(projectRoot);
-      await artifact.createBacklog(options.id, options.title);
+      
+      // Load auth and get folders
+      const { loadAuth, loadConfig } = await import('../utils/config.js');
+      const auth = await loadAuth(projectRoot);
+      const config = await loadConfig(projectRoot);
+      
+      if (!auth || !config) {
+        console.error('✗ Not initialized. Run `sprint-artifact init` first.');
+        process.exit(1);
+      }
+
+      const { GoogleDriveClient } = await import('../sdk/google-drive.js');
+      const driveClient = new GoogleDriveClient(auth);
+
+      // Get year folder
+      const yearFolders = await driveClient.listFiles(config.googleDrive.folderId);
+      const yearFolder = yearFolders.find(f => f.name === config.googleDrive.year && f.mimeType === 'application/vnd.google-apps.folder');
+      
+      if (!yearFolder) {
+        console.error(`✗ Year folder "${config.googleDrive.year}" not found.`);
+        process.exit(1);
+      }
+
+      // Get folders inside year folder
+      const sprintFolders = await driveClient.listFiles(yearFolder.id);
+      const folders = sprintFolders.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
+
+      if (folders.length === 0) {
+        console.error('✗ No folders found in year folder.');
+        process.exit(1);
+      }
+
+      // Let user select folder (Backlogs, Sprint 1, Sprint 2, etc.)
+      const selectedFolder = await select({
+        message: 'Select folder:',
+        choices: folders.map(f => ({ name: f.name, value: f.id })),
+      });
+
+      await artifact.createBacklog(options.id, options.title, selectedFolder);
       console.log('✓ Backlog item created');
       console.log(`  ID: ${options.id}`);
       console.log(`  Title: ${options.title}`);

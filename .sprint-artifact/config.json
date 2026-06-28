@@ -5,7 +5,20 @@
     "year": "2026"
   },
   "manifest": {
-    "lastSync": "2026-06-28T15:24:34.964Z",
-    "files": []
+    "lastSync": "2026-06-28T15:28:03.305Z",
+    "files": [
+      {
+        "id": "1ZAU-Ku55XVt-q1cL203DkEv1JWi0f_AFEuVWPpuCmMo",
+        "name": "Project / Task Documentation Standardization Guide",
+        "mimeType": "application/vnd.google-apps.document",
+        "modifiedTime": "2026-06-11T07:45:05.670Z"
+      },
+      {
+        "id": "1j2enIn3eKsFJ-5EWUY7fg5TxJersUbuI",
+        "name": "2026",
+        "mimeType": "application/vnd.google-apps.folder",
+        "modifiedTime": "2026-02-11T03:23:43.619Z"
+      }
+    ]
   }
 }

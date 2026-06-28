@@ -58,27 +58,13 @@ export class SprintArtifact {
     }
   }
 
-  async createBacklog(taskId: string, title: string): Promise<void> {
+  async createBacklog(taskId: string, title: string, folderId: string): Promise<void> {
     await this.ensureInitialized();
 
     const folderName = `${taskId} ${title}`;
-    const yearFolder = this.config!.googleDrive.year;
-    const backlogsFolder = await this.driveClient!.findFolder('Backlogs', this.config!.googleDrive.folderId);
-    
-    let backlogsId: string;
-    if (backlogsFolder) {
-      backlogsId = backlogsFolder;
-    } else {
-      // Find or create year folder first
-      let yearFolderId = await this.driveClient!.findFolder(yearFolder, this.config!.googleDrive.folderId);
-      if (!yearFolderId) {
-        yearFolderId = await this.driveClient!.createFolder(yearFolder, this.config!.googleDrive.folderId);
-      }
-      backlogsId = await this.driveClient!.createFolder('Backlogs', yearFolderId);
-    }
 
     // Create task folder
-    const taskFolderId = await this.driveClient!.createFolder(folderName, backlogsId);
+    const taskFolderId = await this.driveClient!.createFolder(folderName, folderId);
 
     // Create subfolders
     await this.driveClient!.createFolder('01. Business Requirement Documents', taskFolderId);

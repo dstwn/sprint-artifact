@@ -28,6 +28,7 @@ const artifact = new SprintArtifact(projectRoot);
 const BacklogCreateSchema = z.object({
   id: z.string(),
   title: z.string(),
+  folderId: z.string(),
 });
 
 const SyncSchema = z.object({});
@@ -54,8 +55,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           properties: {
             id: { type: 'string', description: 'Task ID (e.g., IDS-123)' },
             title: { type: 'string', description: 'Task title' },
+            folderId: { type: 'string', description: 'Google Drive folder ID' },
           },
-          required: ['id', 'title'],
+          required: ['id', 'title', 'folderId'],
         },
       },
       {
@@ -107,8 +109,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     switch (name) {
       case 'backlog_create': {
-        const { id, title } = BacklogCreateSchema.parse(args);
-        await artifact.createBacklog(id, title);
+        const { id, title, folderId } = BacklogCreateSchema.parse(args);
+        await artifact.createBacklog(id, title, folderId);
         return {
           content: [
             {
