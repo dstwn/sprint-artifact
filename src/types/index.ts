@@ -9,6 +9,8 @@ export interface SprintArtifactConfig {
     planningId?: string;
   };
   selectedTask?: string;
+  selectedTaskId?: string;
+  selectedTaskFolderId?: string;
   manifest?: Manifest;
 }
 

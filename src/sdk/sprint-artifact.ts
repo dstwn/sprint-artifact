@@ -174,11 +174,48 @@ export class SprintArtifact {
     await saveConfig(this.projectRoot, this.config!);
   }
 
-  async selectTask(taskId: string): Promise<void> {
+  async selectTask(taskName: string, taskId: string, folderId: string): Promise<void> {
     await this.ensureInitialized();
 
-    this.config!.selectedTask = taskId;
+    this.config!.selectedTask = taskName;
+    this.config!.selectedTaskId = taskId;
+    this.config!.selectedTaskFolderId = folderId;
     await saveConfig(this.projectRoot, this.config!);
+  }
+
+  async pushTechDocs(): Promise<void> {
+    await this.ensureInitialized();
+
+    if (!this.config!.selectedTaskId) {
+      throw new Error('No active task selected. Run `sprint-artifact select` first.');
+    }
+
+    // Find the task folder in Google Drive
+    const taskFolderId = this.config!.selectedTaskId;
+    
+    // Find "02. Technical Documents" subfolder
+    const subfolders = await this.driveClient!.listFiles(taskFolderId);
+    const techDocsFolder = subfolders.find(f => f.name === '02. Technical Documents' && f.mimeType === 'application/vnd.google-apps.folder');
+    
+    if (!techDocsFolder) {
+      throw new Error('02. Technical Documents folder not found in task.');
+    }
+
+    // Read files from local .planning folder
+    const planningPath = join(this.projectRoot, '.planning');
+    if (!existsSync(planningPath)) {
+      throw new Error('.planning folder not found.');
+    }
+
+    // Upload files to Google Drive
+    const { readdirSync, readFileSync } = await import('node:fs');
+    const files = readdirSync(planningPath);
+    
+    for (const file of files) {
+      const filePath = join(planningPath, file);
+      const content = readFileSync(filePath, 'utf-8');
+      await this.driveClient!.createFile(file, content, techDocsFolder.id);
+    }
   }
 
   async status(): Promise<{

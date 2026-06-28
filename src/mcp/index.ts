@@ -162,7 +162,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'select_task': {
         const { taskId } = SelectTaskSchema.parse(args);
-        await artifact.selectTask(taskId);
+        await artifact.selectTask(taskId, taskId, taskId);
         return {
           content: [
             {

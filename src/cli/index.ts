@@ -15,6 +15,107 @@ program
   .version('0.1.0');
 
 program
+  .command('select')
+  .description('Select active task')
+  .option('--task-id <id>', 'Task ID (e.g., IDS-123)')
+  .action(async (options) => {
+    try {
+      const projectRoot = resolve(process.cwd());
+      const artifact = new SprintArtifact(projectRoot);
+      
+      const { loadAuth, loadConfig } = await import('../utils/config.js');
+      const auth = await loadAuth(projectRoot);
+      const config = await loadConfig(projectRoot);
+      
+      if (!auth || !config) {
+        console.error('✗ Not initialized. Run `sprint-artifact init` first.');
+        process.exit(1);
+      }
+
+      const { GoogleDriveClient } = await import('../sdk/google-drive.js');
+      const driveClient = new GoogleDriveClient(auth);
+
+      // Get year folder
+      const yearFolders = await driveClient.listFiles(config.googleDrive.folderId);
+      const yearFolder = yearFolders.find(f => f.name === config.googleDrive.year && f.mimeType === 'application/vnd.google-apps.folder');
+      
+      if (!yearFolder) {
+        console.error(`✗ Year folder "${config.googleDrive.year}" not found.`);
+        process.exit(1);
+      }
+
+      // Get all folders from year folder
+      const subFolders = await driveClient.listFiles(yearFolder.id);
+      const allTasks: { name: string; id: string; folderId: string }[] = [];
+
+      for (const folder of subFolders.filter(f => f.mimeType === 'application/vnd.google-apps.folder')) {
+        const tasks = await driveClient.listFiles(folder.id);
+        for (const task of tasks.filter(f => f.mimeType === 'application/vnd.google-apps.folder')) {
+          allTasks.push({ name: task.name, id: task.id, folderId: folder.id });
+        }
+      }
+
+      if (allTasks.length === 0) {
+        console.error('✗ No tasks found.');
+        process.exit(1);
+      }
+
+      let selectedTask: { name: string; id: string; folderId: string };
+
+      if (options.taskId) {
+        const task = allTasks.find(t => t.name.startsWith(options.taskId));
+        if (!task) {
+          console.error(`✗ Task "${options.taskId}" not found.`);
+          process.exit(1);
+        }
+        selectedTask = task;
+      } else {
+        const selected = await select({
+          message: 'Select active task:',
+          choices: allTasks.map(t => ({ name: t.name, value: t })),
+        });
+        selectedTask = selected;
+      }
+
+      await artifact.selectTask(selectedTask.name, selectedTask.id, selectedTask.folderId);
+      console.log(`✓ Active task: ${selectedTask.name}`);
+    } catch (error) {
+      console.error('✗ Failed to select task:', error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('push')
+  .description('Push files to Google Drive')
+  .option('--tech-docs', 'Push to 02. Technical Documents')
+  .action(async (options) => {
+    try {
+      const projectRoot = resolve(process.cwd());
+      const artifact = new SprintArtifact(projectRoot);
+      
+      const { loadConfig } = await import('../utils/config.js');
+      const config = await loadConfig(projectRoot);
+      
+      if (!config?.selectedTaskId) {
+        console.error('✗ No active task. Run `sprint-artifact select` first.');
+        process.exit(1);
+      }
+
+      if (options.techDocs) {
+        await artifact.pushTechDocs();
+        console.log('✓ Pushed to 02. Technical Documents');
+      } else {
+        console.error('✗ Specify what to push (e.g., --tech-docs)');
+        process.exit(1);
+      }
+    } catch (error) {
+      console.error('✗ Failed to push:', error);
+      process.exit(1);
+    }
+  });
+
+program
   .command('login')
   .description('Login with Google account (auto-detect credentials)')
   .option('--credentials <path>', 'Path to OAuth2 credentials JSON file')
