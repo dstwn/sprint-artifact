@@ -1,6 +1,9 @@
 {
-  "name": "sprint-artifact",
+  "name": "@dstwn/sprint-artifact",
   "version": "0.6.0",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "description": "Sprint Artifact management tool with Google Drive integration",
   "type": "module",
   "main": "./dist/sdk/index.js",
