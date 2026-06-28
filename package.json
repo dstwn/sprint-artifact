@@ -2,7 +2,8 @@
   "name": "@dstwn/sprint-artifact",
   "version": "0.6.0",
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
   },
   "description": "Sprint Artifact management tool with Google Drive integration",
   "type": "module",
