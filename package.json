@@ -6,7 +6,7 @@
   "main": "./dist/sdk/index.js",
   "types": "./dist/sdk/index.d.ts",
   "bin": {
-    "sprint-artifact": "./dist/cli/index.js"
+    "sprint-artifact": "dist/cli/index.js"
   },
   "exports": {
     ".": {
@@ -49,7 +49,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dstwn/sprint-artifact.git"
+    "url": "git+https://github.com/dstwn/sprint-artifact.git"
   },
   "bugs": {
     "url": "https://github.com/dstwn/sprint-artifact/issues"
