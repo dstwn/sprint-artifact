@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2026-06-28
+
+### Added
+- `select` command - pilih active task (interactive, tersimpan di config)
+- `push --tech-docs` command - push file dari `.planning/` ke `02. Technical Documents/`
+- `pull` command - pull task dari Google Drive ke local (interactive)
+  - `--backlog` - pull dari Backlogs folder
+  - `--sprint <name>` - pull dari Sprint folder
+- `selectedTaskId` dan `selectedTaskFolderId` di config
+
+### Changed
+- `select` sekarang interactive dengan list task dari Google Drive
+- `pull` sekarang menyimpan ke `.sprint-artifact/backlogs/` atau `.sprint-artifact/sprints/`
+
 ## [0.3.0] - 2026-06-28
 
 ### Added
