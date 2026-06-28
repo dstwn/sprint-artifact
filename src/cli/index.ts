@@ -519,7 +519,7 @@ sprintCmd
       const destFolderName = folders.find(f => f.id === destFolderId)?.name || '';
 
       // Move task
-      await artifact.moveToSprint(selectedTaskId, destFolderId);
+      await artifact.moveToSprint(selectedTaskId, destFolderId, selectedTaskName);
       
       console.log(`✓ Moved: ${selectedTaskName}`);
       console.log(`  From: ${sourceFolderName}`);

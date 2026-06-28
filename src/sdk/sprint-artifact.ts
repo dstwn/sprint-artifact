@@ -203,11 +203,25 @@ export class SprintArtifact {
     }
   }
 
-  async moveToSprint(taskFolderId: string, newParentFolderId: string): Promise<void> {
+  async moveToSprint(taskFolderId: string, newParentFolderId: string, taskName?: string): Promise<void> {
     await this.ensureInitialized();
 
     // Move folder in Google Drive
     await this.driveClient!.moveFile(taskFolderId, newParentFolderId);
+
+    const name = taskName || this.config!.selectedTask;
+
+    // Move local folder if it exists
+    const oldPath = join(this.projectRoot, '.sprint-artifact', 'backlogs', name || '');
+    const newPath = join(this.projectRoot, '.sprint-artifact', 'sprints', name || '');
+
+    if (name && existsSync(oldPath)) {
+      if (!existsSync(join(this.projectRoot, '.sprint-artifact', 'sprints'))) {
+        mkdirSync(join(this.projectRoot, '.sprint-artifact', 'sprints'), { recursive: true });
+      }
+      const { renameSync } = await import('node:fs');
+      renameSync(oldPath, newPath);
+    }
 
     // Update config if this is the selected task
     if (this.config!.selectedTaskId === taskFolderId) {
