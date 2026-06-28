@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SprintArtifactConfig",
+  "type": "object",
+  "required": ["version", "googleDrive"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "googleDrive": {
+      "type": "object",
+      "required": ["folderId"],
+      "properties": {
+        "folderId": {
+          "type": "string",
+          "description": "Google Drive folder ID"
+        },
+        "brdId": {
+          "type": "string",
+          "description": "Business Requirements Document file ID"
+        },
+        "prdId": {
+          "type": "string",
+          "description": "Product Requirements Document file ID"
+        },
+        "planningId": {
+          "type": "string",
+          "description": "Planning document file ID"
+        }
+      }
+    },
+    "selectedTask": {
+      "type": "string",
+      "description": "Currently selected task ID"
+    },
+    "manifest": {
+      "$ref": "#/$defs/Manifest"
+    }
+  },
+  "$defs": {
+    "Manifest": {
+      "type": "object",
+      "required": ["lastSync", "files"],
+      "properties": {
+        "lastSync": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ManifestFile"
+          }
+        }
+      }
+    },
+    "ManifestFile": {
+      "type": "object",
+      "required": ["id", "name", "mimeType", "modifiedTime"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "mimeType": {
+          "type": "string"
+        },
+        "modifiedTime": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "md5Checksum": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

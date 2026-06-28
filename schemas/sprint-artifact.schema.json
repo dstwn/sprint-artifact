@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SprintArtifact",
+  "type": "object",
+  "required": ["version", "googleDrive"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "googleDrive": {
+      "$ref": "#/$defs/GoogleDriveConfig"
+    },
+    "selectedTask": {
+      "type": "string"
+    },
+    "manifest": {
+      "$ref": "#/$defs/Manifest"
+    }
+  },
+  "$defs": {
+    "GoogleDriveConfig": {
+      "type": "object",
+      "required": ["folderId"],
+      "properties": {
+        "folderId": {
+          "type": "string"
+        },
+        "brdId": {
+          "type": "string"
+        },
+        "prdId": {
+          "type": "string"
+        },
+        "planningId": {
+          "type": "string"
+        }
+      }
+    },
+    "Manifest": {
+      "type": "object",
+      "required": ["lastSync", "files"],
+      "properties": {
+        "lastSync": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ManifestFile"
+          }
+        }
+      }
+    },
+    "ManifestFile": {
+      "type": "object",
+      "required": ["id", "name", "mimeType", "modifiedTime"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "mimeType": {
+          "type": "string"
+        },
+        "modifiedTime": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "md5Checksum": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

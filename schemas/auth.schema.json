@@ -1,0 +1,105 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AuthConfig",
+  "type": "object",
+  "required": ["type", "credentials"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": ["service_account", "oauth2"]
+    },
+    "credentials": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ServiceAccountCredentials"
+        },
+        {
+          "$ref": "#/$defs/OAuth2Credentials"
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "ServiceAccountCredentials": {
+      "type": "object",
+      "required": [
+        "type",
+        "project_id",
+        "private_key_id",
+        "private_key",
+        "client_email",
+        "client_id",
+        "auth_uri",
+        "token_uri",
+        "auth_provider_x509_cert_url",
+        "client_x509_cert_url"
+      ],
+      "properties": {
+        "type": {
+          "const": "service_account"
+        },
+        "project_id": {
+          "type": "string"
+        },
+        "private_key_id": {
+          "type": "string"
+        },
+        "private_key": {
+          "type": "string"
+        },
+        "client_email": {
+          "type": "string",
+          "format": "email"
+        },
+        "client_id": {
+          "type": "string"
+        },
+        "auth_uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "token_uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "auth_provider_x509_cert_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "client_x509_cert_url": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    },
+    "OAuth2Credentials": {
+      "type": "object",
+      "required": ["client_id", "client_secret", "redirect_uris"],
+      "properties": {
+        "client_id": {
+          "type": "string"
+        },
+        "client_secret": {
+          "type": "string"
+        },
+        "redirect_uris": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "refresh_token": {
+          "type": "string"
+        },
+        "access_token": {
+          "type": "string"
+        },
+        "token_expiry": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}
