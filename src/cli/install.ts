@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { EOL } from 'node:os';
 
 type Assistant = 'cursor' | 'opencode' | 'claude' | 'copilot' | 'skill';
@@ -168,29 +168,50 @@ function mergeConfig(existing: Record<string, unknown>, update: Record<string, u
   return merged;
 }
 
+const SKILL_PATHS: Record<string, string> = {
+  cursor: '.cursor/rules/sprint-artifact/SKILL.md',
+  opencode: '.opencode/skills/sprint-artifact/SKILL.md',
+  claude: '.claude/skills/sprint-artifact/SKILL.md',
+};
+
+function writeSkill(projectRoot: string, relativePath: string): void {
+  const fullPath = join(projectRoot, relativePath);
+  const dir = dirname(fullPath);
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+  writeFileSync(fullPath, SKILL_CONTENT);
+  console.log(`✓ Skill injected: ${relativePath}`);
+}
+
 export async function install(projectRoot: string, assistant?: string): Promise<void> {
+  const allAssistants: Assistant[] = ['cursor', 'opencode', 'claude', 'copilot', 'skill'];
   const assistants: Assistant[] = assistant
     ? assistant === 'all'
-      ? ['cursor', 'opencode', 'claude', 'copilot', 'skill']
+      ? allAssistants
       : [assistant as Assistant]
-    : ['cursor', 'opencode', 'claude', 'copilot', 'skill'];
+    : allAssistants;
+
+  const hasSkillInjectors = assistants.some(a => a in SKILL_PATHS || a === 'skill');
 
   for (const name of assistants) {
-    if (name === 'skill') {
-      // Install SKILL.md
-      const skillDir = join(projectRoot, '.sprint-artifact');
-      if (!existsSync(skillDir)) {
-        mkdirSync(skillDir, { recursive: true });
-      }
-      const skillPath = join(skillDir, 'SKILL.md');
-      writeFileSync(skillPath, SKILL_CONTENT);
-      console.log(`✓ Created: .sprint-artifact/SKILL.md`);
-      continue;
+    // Inject SKILL.md to assistant's skill directory
+    if (name in SKILL_PATHS) {
+      writeSkill(projectRoot, SKILL_PATHS[name]);
     }
 
+    // Install canonical SKILL.md
+    if (name === 'skill') {
+      writeSkill(projectRoot, '.sprint-artifact/SKILL.md');
+    }
+
+    // Skip MCP config for skill-only
+    if (name === 'skill') continue;
+
+    // Install MCP config
     const cfg = MCP_CONFIGS[name];
     const fullPath = join(projectRoot, cfg.path);
-    const dir = join(projectRoot, cfg.path.split('/').slice(0, -1).join('/'));
+    const dir = dirname(fullPath);
 
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
@@ -214,12 +235,18 @@ export async function install(projectRoot: string, assistant?: string): Promise<
   }
 
   console.log('');
+  if (hasSkillInjectors) {
+    console.log('Skills injected:');
+    for (const name of assistants) {
+      if (name === 'skill') console.log('  - .sprint-artifact/SKILL.md (canonical)');
+      if (name in SKILL_PATHS) console.log(`  - ${SKILL_PATHS[name]}`);
+    }
+    console.log('');
+  }
+
   console.log('Next steps:');
   if (assistants.includes('cursor')) console.log('  - Cursor: Restart Cursor or run Cmd+Shift+P > Reload Window');
   if (assistants.includes('claude')) console.log('  - Claude Code: Run `claude mcp list` to verify connection');
   if (assistants.includes('opencode')) console.log('  - OpenCode: Run `opencode mcp list` to verify connection');
   if (assistants.includes('copilot')) console.log('  - Copilot: Restart VS Code to load MCP server');
-  if (assistants.includes('skill') && !assistants.every(a => a === 'skill')) {
-    console.log('  - AI assistant: Reference .sprint-artifact/SKILL.md for workflow guidance');
-  }
 }

@@ -110,16 +110,16 @@ sprint-artifact status
 ### Install AI Assistant Integration
 
 ```bash
-# Install MCP config untuk semua assistant (cursor, opencode, claude, copilot)
+# Install MCP config + inject skill untuk semua assistant
 sprint-artifact install
 
 # Install untuk assistant tertentu
-sprint-artifact install cursor
-sprint-artifact install opencode
-sprint-artifact install claude
-sprint-artifact install copilot
+sprint-artifact install cursor          # .cursor/mcp.json + .cursor/rules/sprint-artifact/SKILL.md
+sprint-artifact install opencode        # opencode.json + .opencode/skills/sprint-artifact/SKILL.md
+sprint-artifact install claude          # .mcp.json + .claude/skills/sprint-artifact/SKILL.md
+sprint-artifact install copilot        # .vscode/mcp.json (skill tidak support)
 
-# Install skill file aja
+# Install skill file aja (ke .sprint-artifact/SKILL.md)
 sprint-artifact install skill
 
 # Install semua (termasuk skill)
@@ -243,6 +243,15 @@ Auto-generated saat login. Jangan commit ke repository.
 │       └── 05. Guide Documents/
 └── sprints/            # Pulled sprint tasks (auto dari select)
     └── IDS-456 Another task/
+.cursor/
+├── mcp.json                              # Cursor MCP (auto-installed)
+└── rules/sprint-artifact/SKILL.md        # Cursor skill (auto-installed)
+.opencode/skills/sprint-artifact/SKILL.md # OpenCode skill (auto-installed)
+.claude/skills/sprint-artifact/SKILL.md   # Claude Code skill (auto-installed)
+.mcp.json                                 # Claude Code MCP (auto-installed)
+opencode.json                             # OpenCode MCP (auto-installed)
+.vscode/mcp.json                          # Copilot MCP (auto-installed)
+.planning/                                # Push source directory
 ```
 
 ## Google Drive Structure
