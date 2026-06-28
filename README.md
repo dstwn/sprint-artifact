@@ -140,11 +140,11 @@ Tambahkan ke konfigurasi MCP (Cursor, Claude, dll):
 
 | Tool | Description |
 |------|-------------|
-| `backlog_create` | Buat backlog item dengan folder structure |
-| `sync_documents` | Sync dokumen dengan Google Drive |
-| `move_to_sprint` | Pindahkan task ke folder lain |
-| `status` | Lihat status project |
-| `select_task` | Pilih task yang sedang dikerjakan |
+| `backlog_create` | Buat backlog item + auto-select + auto-pull ke local (folderId opsional) |
+| `sync_documents` | Sync bidirectional dari active task (pull remote + upload local baru) |
+| `move_to_sprint` | Pindahkan task ke folder lain (local folder ikut pindah) |
+| `status` | Lihat status project (detail ID folder) |
+| `select_task` | Pilih task yang sedang dikerjakan (auto-pull) |
 
 ## SDK Usage
 
@@ -159,7 +159,7 @@ await artifact.init('GOOGLE_DRIVE_FOLDER_ID', '2026', 'BACKLOGS_FOLDER_ID');
 // Select task (auto pull ke local)
 await artifact.selectTask('IDS-123 Fix login bug', 'folder-id', 'parent-folder-id', 'backlogs');
 
-// Buat backlog
+// Buat backlog (auto-select + auto-pull ke .sprint-artifact/backlogs/)
 await artifact.createBacklog('IDS-123', 'Fix login bug', 'FOLDER_ID');
 
 // Push tech docs (auto pull setelah push)
@@ -171,7 +171,7 @@ await artifact.pullTask('task-folder-id', 'IDS-123 Fix login bug', './local-path
 // Move task ke folder lain (local folder ikut pindah)
 await artifact.moveToSprint('task-folder-id', 'new-parent-folder-id', 'IDS-123 Fix login bug');
 
-// Sync manifest
+// Sync bidirectional dari active task (pull remote + upload local baru)
 const result = await artifact.sync();
 ```
 

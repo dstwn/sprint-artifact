@@ -28,41 +28,44 @@ const artifact = new SprintArtifact(projectRoot);
 const BacklogCreateSchema = z.object({
   id: z.string(),
   title: z.string(),
-  folderId: z.string(),
+  folderId: z.string().optional(),
 });
-
-const SyncSchema = z.object({});
 
 const MoveToSprintSchema = z.object({
   taskFolderId: z.string(),
   newParentFolderId: z.string(),
+  taskName: z.string().optional(),
 });
-
-const StatusSchema = z.object({});
 
 const SelectTaskSchema = z.object({
+  taskName: z.string(),
   taskId: z.string(),
+  taskType: z.enum(['backlogs', 'sprints']).optional(),
 });
+
+const SyncSchema = z.object({});
+
+const StatusSchema = z.object({});
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
       {
         name: 'backlog_create',
-        description: 'Create a new backlog item in Google Drive',
+        description: 'Create a new backlog item in Google Drive (auto-selects + auto-pulls to local)',
         inputSchema: {
           type: 'object',
           properties: {
             id: { type: 'string', description: 'Task ID (e.g., IDS-123)' },
             title: { type: 'string', description: 'Task title' },
-            folderId: { type: 'string', description: 'Google Drive folder ID' },
+            folderId: { type: 'string', description: 'Google Drive folder ID (optional, uses default from config)' },
           },
-          required: ['id', 'title', 'folderId'],
+          required: ['id', 'title'],
         },
       },
       {
         name: 'sync_documents',
-        description: 'Sync documents between local and Google Drive',
+        description: 'Sync documents between local and Google Drive for the active task (pull remote + upload local new files)',
         inputSchema: {
           type: 'object',
           properties: {},
@@ -70,12 +73,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'move_to_sprint',
-        description: 'Move a task folder to a different parent folder',
+        description: 'Move a task folder to a different parent folder (local folder moves too)',
         inputSchema: {
           type: 'object',
           properties: {
             taskFolderId: { type: 'string', description: 'Task folder ID' },
             newParentFolderId: { type: 'string', description: 'New parent folder ID' },
+            taskName: { type: 'string', description: 'Task folder name (optional, for local folder move)' },
           },
           required: ['taskFolderId', 'newParentFolderId'],
         },
@@ -90,13 +94,15 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'select_task',
-        description: 'Select a task to work on',
+        description: 'Select a task to work on (auto-pulls to local)',
         inputSchema: {
           type: 'object',
           properties: {
-            taskId: { type: 'string', description: 'Task ID to select' },
+            taskName: { type: 'string', description: 'Task display name (e.g., "IDS-123 Fix login bug")' },
+            taskId: { type: 'string', description: 'Task folder ID' },
+            taskType: { type: 'string', enum: ['backlogs', 'sprints'], description: 'Task type (default: backlogs)' },
           },
-          required: ['taskId'],
+          required: ['taskName', 'taskId'],
         },
       },
     ],
@@ -110,12 +116,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     switch (name) {
       case 'backlog_create': {
         const { id, title, folderId } = BacklogCreateSchema.parse(args);
-        await artifact.createBacklog(id, title, folderId);
+        const config = await artifact.getConfig();
+        const targetFolderId = folderId || config?.googleDrive.defaultFolderId;
+        if (!targetFolderId) {
+          throw new Error('No folderId provided and no default folder configured. Run `sprint-artifact init` first.');
+        }
+        await artifact.createBacklog(id, title, targetFolderId);
         return {
           content: [
             {
               type: 'text',
-              text: `Created backlog item: ${id} ${title}`,
+              text: `Created and selected backlog item: ${id} ${title}. Synced to .sprint-artifact/backlogs/${id} ${title}/`,
             },
           ],
         };
@@ -135,13 +146,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'move_to_sprint': {
-        const { taskFolderId, newParentFolderId } = MoveToSprintSchema.parse(args);
-        await artifact.moveToSprint(taskFolderId, newParentFolderId);
+        const { taskFolderId, newParentFolderId, taskName } = MoveToSprintSchema.parse(args);
+        await artifact.moveToSprint(taskFolderId, newParentFolderId, taskName);
         return {
           content: [
             {
               type: 'text',
-              text: `Moved task ${taskFolderId} to folder ${newParentFolderId}`,
+              text: `Moved task ${taskFolderId} to folder ${newParentFolderId}. Local folder moved to .sprint-artifact/sprints/.`,
             },
           ],
         };
@@ -161,13 +172,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'select_task': {
-        const { taskId } = SelectTaskSchema.parse(args);
-        await artifact.selectTask(taskId, taskId, taskId);
+        const { taskName, taskId, taskType } = SelectTaskSchema.parse(args);
+        await artifact.selectTask(taskName, taskId, taskId, taskType);
         return {
           content: [
             {
               type: 'text',
-              text: `Selected task: ${taskId}`,
+              text: `Selected task: ${taskName}`,
             },
           ],
         };

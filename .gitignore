@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env
 .sprint-artifact/auth.json
+.sprint-artifact/config.json
 credentials.json
 client_secret.json
 oauth2.json
