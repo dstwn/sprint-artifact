@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { EOL } from 'node:os';
+import { EOL, homedir } from 'node:os';
 
 type Assistant = 'cursor' | 'opencode' | 'claude' | 'copilot' | 'skill';
 
@@ -189,7 +189,6 @@ Show current project configuration and active task details.
 
 const ASSISTANT_SKILL_DIRS: Record<string, string> = {
   cursor: '.cursor/rules/sprint-artifact',
-  opencode: '.opencode/skills/sprint-artifact',
   claude: '.claude/skills/sprint-artifact',
 };
 
@@ -245,6 +244,47 @@ function installSkills(projectRoot: string, targetDir: string, label: string): v
   console.log(`✓ Skills injected (${Object.keys(COMMAND_SKILLS).length} files): ${targetDir}/`);
 }
 
+function installOpencodeSkill(rootDir: string): void {
+  const targetDir = join(rootDir, '.agents', 'skills', 'sprint-artifact');
+  if (!existsSync(targetDir)) {
+    mkdirSync(targetDir, { recursive: true });
+  }
+  const skillContent = `---
+name: sprint-artifact
+description: "Manage sprint artifacts (backlogs, tasks, documents) with Google Drive. Commands: init, select, backlog create, pull, push, sync, sprint move, status. MCP tools: list_folders, list_tasks, init_project, backlog_create, select_task, pull_task, push_files, sync_documents, move_to_sprint, status. USE FOR: creating backlogs, selecting tasks, pushing planning docs, syncing with Google Drive, moving tasks to sprints, viewing project status. DO NOT USE FOR: general document editing, team chat, project management outside of artifact workflow."
+license: MIT
+metadata:
+  version: "0.6.1"
+---
+
+# Sprint Artifact
+
+Manage sprint artifacts (backlogs, tasks, documents) with Google Drive integration.
+
+## Available Commands
+
+- **/sprint-artifact-init** — Initialize project config (folder ID, year, default backlog folder)
+- **/sprint-artifact-select** — Browse folders, pick task, auto-pull to local
+- **/sprint-artifact-backlog-create** — Create backlog with 5-subfolder structure
+- **/sprint-artifact-pull** — Pull task files from Drive to local
+- **/sprint-artifact-push** — Push .planning/ files to active task in Drive
+- **/sprint-artifact-sync** — Bidirectional sync for active task
+- **/sprint-artifact-move** — Move task between Backlogs and Sprint folders
+- **/sprint-artifact-status** — Show project config and active task
+
+## MCP Tools
+list_folders, list_tasks, init_project, backlog_create, select_task, pull_task, push_files, sync_documents, move_to_sprint, status
+
+## Folder Structure
+\`\`\`
+SprintArtifacts/ → YYYY/ → Backlogs|Sprints/ → ID-Title/ → 01..05 subfolders
+\`\`\`
+`;
+
+  writeFileSync(join(targetDir, 'SKILL.md'), skillContent);
+  console.log(`✓ Opencode skill installed: ${targetDir}/SKILL.md`);
+}
+
 export async function install(projectRoot: string, assistant?: string): Promise<void> {
   const allAssistants: Assistant[] = ['cursor', 'opencode', 'claude', 'copilot', 'skill'];
   const assistants: Assistant[] = assistant
@@ -259,6 +299,13 @@ export async function install(projectRoot: string, assistant?: string): Promise<
       continue;
     }
 
+    if (name === 'opencode') {
+      installMcpConfig(projectRoot, 'opencode');
+      const home = homedir();
+      installOpencodeSkill(home);
+      continue;
+    }
+
     installMcpConfig(projectRoot, name);
 
     if (name in ASSISTANT_SKILL_DIRS) {
@@ -270,7 +317,7 @@ export async function install(projectRoot: string, assistant?: string): Promise<
   console.log('Next steps:');
   if (assistants.includes('cursor')) console.log('  - Cursor: Restart Cursor or run Cmd+Shift+P > Reload Window');
   if (assistants.includes('claude')) console.log('  - Claude Code: Run `claude mcp list` to verify connection');
-  if (assistants.includes('opencode')) console.log('  - OpenCode: Skills loaded at .opencode/skills/sprint-artifact/');
+  if (assistants.includes('opencode')) console.log('  - OpenCode: Restart session, skill loaded from ~/.agents/skills/sprint-artifact/');
   if (assistants.includes('copilot')) console.log('  - Copilot: Restart VS Code to load MCP server');
   if (assistants.includes('skill')) console.log('  - AI assistant: Reference .sprint-artifact/skills/sprint-artifact/');
 }
