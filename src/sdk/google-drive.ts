@@ -224,4 +224,16 @@ export class GoogleDriveClient {
 
     return data.files?.[0]?.id || null;
   }
+
+  async getFileParents(fileId: string): Promise<string[]> {
+    const url = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=parents&supportsAllDrives=true`;
+    const data = await this.request('GET', url);
+    return data.parents || [];
+  }
+
+  async moveFile(fileId: string, newParentId: string): Promise<void> {
+    const oldParents = await this.getFileParents(fileId);
+    const url = `https://www.googleapis.com/drive/v3/files/${fileId}?removeParents=${oldParents.join(',')}&addParents=${newParentId}&supportsAllDrives=true`;
+    await this.request('PATCH', url);
+  }
 }

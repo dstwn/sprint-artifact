@@ -121,23 +121,19 @@ export class SprintArtifact {
     return { added, updated, deleted };
   }
 
-  async moveToSprint(backlogItemId: string, sprintId: string): Promise<void> {
+  async moveToSprint(taskFolderId: string, newParentFolderId: string): Promise<void> {
     await this.ensureInitialized();
 
-    const files = await this.driveClient!.listFiles(this.config!.googleDrive.folderId);
-    const file = files.find((f) => f.name === `${backlogItemId}.md`);
+    // Move folder in Google Drive
+    await this.driveClient!.moveFile(taskFolderId, newParentFolderId);
 
-    if (!file) {
-      throw new Error(`Backlog item ${backlogItemId} not found`);
+    // Update config if this is the selected task
+    if (this.config!.selectedTaskId === taskFolderId) {
+      this.config!.selectedTaskFolderId = newParentFolderId;
+      this.config!.selectedTaskType = 'sprints';
+      await saveConfig(this.projectRoot, this.config!);
     }
 
-    const content = await this.driveClient!.getFile(file.id);
-    const updatedContent = content.replace(
-      /^sprint:.*$/m,
-      `sprint: ${sprintId}`
-    );
-
-    await this.driveClient!.updateFile(file.id, updatedContent);
     await this.syncManifest();
   }
 
@@ -176,12 +172,13 @@ export class SprintArtifact {
     }
   }
 
-  async selectTask(taskName: string, taskId: string, folderId: string): Promise<void> {
+  async selectTask(taskName: string, taskId: string, folderId: string, taskType?: 'backlogs' | 'sprints'): Promise<void> {
     await this.ensureInitialized();
 
     this.config!.selectedTask = taskName;
     this.config!.selectedTaskId = taskId;
     this.config!.selectedTaskFolderId = folderId;
+    this.config!.selectedTaskType = taskType;
     await saveConfig(this.projectRoot, this.config!);
   }
 
@@ -194,6 +191,13 @@ export class SprintArtifact {
     }
 
     await this.uploadFolder(planningPath, targetFolderId);
+
+    // Auto pull after push
+    if (this.config!.selectedTaskId && this.config!.selectedTask) {
+      const taskType = this.config!.selectedTaskType || 'backlogs';
+      const targetPath = join(this.projectRoot, '.sprint-artifact', taskType);
+      await this.pullTask(this.config!.selectedTaskId, this.config!.selectedTask, targetPath);
+    }
   }
 
   private async uploadFolder(localPath: string, parentFolderId: string): Promise<void> {

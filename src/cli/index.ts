@@ -86,15 +86,16 @@ program
         });
       }
 
-      await artifact.selectTask(selectedTask.name, selectedTask.id, selectedFolderId);
+      const taskType = selectedFolderName.toLowerCase().includes('sprint') ? 'sprints' : 'backlogs';
+      await artifact.selectTask(selectedTask.name, selectedTask.id, selectedFolderId, taskType);
       
       // Auto pull
-      const targetPath = join(projectRoot, '.sprint-artifact', selectedFolderName.toLowerCase().includes('sprint') ? 'sprints' : 'backlogs');
+      const targetPath = join(projectRoot, '.sprint-artifact', taskType);
       await artifact.pullTask(selectedTask.id, selectedTask.name, targetPath);
       
       console.log(`✓ Active task: ${selectedTask.name}`);
       console.log(`  Folder: ${selectedFolderName}`);
-      console.log(`  Pulled to: .sprint-artifact/${selectedFolderName.toLowerCase().includes('sprint') ? 'sprints' : 'backlogs'}/${selectedTask.name}/`);
+      console.log(`  Pulled to: .sprint-artifact/${taskType}/${selectedTask.name}/`);
     } catch (error) {
       console.error('✗ Failed to select task:', error);
       process.exit(1);
@@ -442,17 +443,80 @@ const sprintCmd = program
 
 sprintCmd
   .command('move')
-  .description('Move a backlog item to a sprint')
-  .requiredOption('--backlog-id <id>', 'Backlog item ID')
-  .requiredOption('--sprint-id <id>', 'Sprint ID')
-  .action(async (options) => {
+  .description('Move a task to a different folder')
+  .action(async () => {
     try {
       const projectRoot = resolve(process.cwd());
       const artifact = new SprintArtifact(projectRoot);
-      await artifact.moveToSprint(options.backlogId, options.sprintId);
-      console.log(`✓ Moved backlog item ${options.backlogId} to sprint ${options.sprintId}`);
+      
+      const { loadAuth, loadConfig } = await import('../utils/config.js');
+      const auth = await loadAuth(projectRoot);
+      const config = await loadConfig(projectRoot);
+      
+      if (!auth || !config) {
+        console.error('✗ Not initialized. Run `sprint-artifact init` first.');
+        process.exit(1);
+      }
+
+      const { GoogleDriveClient } = await import('../sdk/google-drive.js');
+      const driveClient = new GoogleDriveClient(auth);
+
+      // Get year folder
+      const yearFolders = await driveClient.listFiles(config.googleDrive.folderId);
+      const yearFolder = yearFolders.find(f => f.name === config.googleDrive.year && f.mimeType === 'application/vnd.google-apps.folder');
+      
+      if (!yearFolder) {
+        console.error(`✗ Year folder "${config.googleDrive.year}" not found.`);
+        process.exit(1);
+      }
+
+      // Get folders inside year folder (Backlogs, Sprint 1, etc.)
+      const subFolders = await driveClient.listFiles(yearFolder.id);
+      const folders = subFolders.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
+
+      if (folders.length === 0) {
+        console.error('✗ No folders found.');
+        process.exit(1);
+      }
+
+      // Step 1: Select source folder
+      const sourceFolderId = await select({
+        message: 'Select source folder:',
+        choices: folders.map(f => ({ name: f.name, value: f.id })),
+      });
+      const sourceFolderName = folders.find(f => f.id === sourceFolderId)?.name || '';
+
+      // Step 2: Get tasks from source folder
+      const tasks = await driveClient.listFiles(sourceFolderId);
+      const taskFolders = tasks.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
+
+      if (taskFolders.length === 0) {
+        console.error('✗ No tasks found in folder.');
+        process.exit(1);
+      }
+
+      // Step 3: Select task to move
+      const selectedTaskId = await select({
+        message: 'Select task to move:',
+        choices: taskFolders.map(t => ({ name: t.name, value: t.id })),
+      });
+      const selectedTaskName = taskFolders.find(t => t.id === selectedTaskId)?.name || '';
+
+      // Step 4: Select destination folder
+      const destFolderId = await select({
+        message: 'Move to:',
+        choices: folders.filter(f => f.id !== sourceFolderId).map(f => ({ name: f.name, value: f.id })),
+      });
+      const destFolderName = folders.find(f => f.id === destFolderId)?.name || '';
+
+      // Move task
+      await artifact.moveToSprint(selectedTaskId, destFolderId);
+      
+      console.log(`✓ Moved: ${selectedTaskName}`);
+      console.log(`  From: ${sourceFolderName}`);
+      console.log(`  To: ${destFolderName}`);
     } catch (error) {
-      console.error('✗ Failed to move item:', error);
+      console.error('✗ Failed to move:', error);
       process.exit(1);
     }
   });

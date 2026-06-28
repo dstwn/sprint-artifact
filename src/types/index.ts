@@ -11,6 +11,7 @@ export interface SprintArtifactConfig {
   selectedTask?: string;
   selectedTaskId?: string;
   selectedTaskFolderId?: string;
+  selectedTaskType?: 'backlogs' | 'sprints';
   manifest?: Manifest;
 }
 

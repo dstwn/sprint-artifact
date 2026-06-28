@@ -34,8 +34,8 @@ const BacklogCreateSchema = z.object({
 const SyncSchema = z.object({});
 
 const MoveToSprintSchema = z.object({
-  backlogId: z.string(),
-  sprintId: z.string(),
+  taskFolderId: z.string(),
+  newParentFolderId: z.string(),
 });
 
 const StatusSchema = z.object({});
@@ -70,14 +70,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'move_to_sprint',
-        description: 'Move a backlog item to a sprint',
+        description: 'Move a task folder to a different parent folder',
         inputSchema: {
           type: 'object',
           properties: {
-            backlogId: { type: 'string', description: 'Backlog item ID' },
-            sprintId: { type: 'string', description: 'Sprint ID' },
+            taskFolderId: { type: 'string', description: 'Task folder ID' },
+            newParentFolderId: { type: 'string', description: 'New parent folder ID' },
           },
-          required: ['backlogId', 'sprintId'],
+          required: ['taskFolderId', 'newParentFolderId'],
         },
       },
       {
@@ -135,13 +135,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'move_to_sprint': {
-        const { backlogId, sprintId } = MoveToSprintSchema.parse(args);
-        await artifact.moveToSprint(backlogId, sprintId);
+        const { taskFolderId, newParentFolderId } = MoveToSprintSchema.parse(args);
+        await artifact.moveToSprint(taskFolderId, newParentFolderId);
         return {
           content: [
             {
               type: 'text',
-              text: `Moved backlog item ${backlogId} to sprint ${sprintId}`,
+              text: `Moved task ${taskFolderId} to folder ${newParentFolderId}`,
             },
           ],
         };
