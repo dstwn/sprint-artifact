@@ -26,5 +26,3 @@ jobs:
       - run: npm run build
 
       - run: npm test
-        env:
-          NODE_OPTIONS: '--max-old-space-size=6144'
