@@ -182,17 +182,60 @@ program
   });
 
 program
-  .command('select')
-  .description('Select a task to work on')
-  .argument('<task-id>', 'Task ID to select')
-  .action(async (taskId) => {
+  .command('pull')
+  .description('Pull backlog items from Google Drive')
+  .option('--task-id <id>', 'Task ID to pull (optional)')
+  .action(async (options) => {
     try {
       const projectRoot = resolve(process.cwd());
       const artifact = new SprintArtifact(projectRoot);
-      await artifact.selectTask(taskId);
-      console.log(`✓ Selected task: ${taskId}`);
+      
+      const { loadAuth, loadConfig } = await import('../utils/config.js');
+      const auth = await loadAuth(projectRoot);
+      const config = await loadConfig(projectRoot);
+      
+      if (!auth || !config?.googleDrive.defaultFolderId) {
+        console.error('✗ Not initialized. Run `sprint-artifact init` first.');
+        process.exit(1);
+      }
+
+      const { GoogleDriveClient } = await import('../sdk/google-drive.js');
+      const driveClient = new GoogleDriveClient(auth);
+
+      // Get folders from default folder
+      const folders = await driveClient.listFiles(config.googleDrive.defaultFolderId);
+      const taskFolders = folders.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
+
+      if (taskFolders.length === 0) {
+        console.error('✗ No tasks found.');
+        process.exit(1);
+      }
+
+      let selectedTaskId: string;
+      let selectedTaskName: string;
+
+      if (options.taskId) {
+        const task = taskFolders.find(f => f.name.startsWith(options.taskId));
+        if (!task) {
+          console.error(`✗ Task "${options.taskId}" not found.`);
+          process.exit(1);
+        }
+        selectedTaskId = task.id;
+        selectedTaskName = task.name;
+      } else {
+        const selected = await select({
+          message: 'Select task to pull:',
+          choices: taskFolders.map(f => ({ name: f.name, value: f.id })),
+        });
+        selectedTaskId = selected;
+        selectedTaskName = taskFolders.find(f => f.id === selected)?.name || '';
+      }
+
+      // Pull task
+      await artifact.pullTask(selectedTaskId, selectedTaskName, projectRoot);
+      console.log(`✓ Pulled: ${selectedTaskName}`);
     } catch (error) {
-      console.error('✗ Failed to select task:', error);
+      console.error('✗ Failed to pull:', error);
       process.exit(1);
     }
   });

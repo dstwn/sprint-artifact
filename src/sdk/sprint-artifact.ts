@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import type {
   SprintArtifactConfig,
   AuthConfig,
@@ -139,6 +139,39 @@ export class SprintArtifact {
 
     await this.driveClient!.updateFile(file.id, updatedContent);
     await this.syncManifest();
+  }
+
+  async pullTask(taskFolderId: string, taskName: string, localPath: string): Promise<void> {
+    await this.ensureInitialized();
+
+    const taskPath = join(localPath, taskName);
+    if (!existsSync(taskPath)) {
+      mkdirSync(taskPath, { recursive: true });
+    }
+
+    // Get subfolders
+    const subfolders = await this.driveClient!.listFiles(taskFolderId);
+    
+    for (const folder of subfolders) {
+      if (folder.mimeType === 'application/vnd.google-apps.folder') {
+        const folderPath = join(taskPath, folder.name);
+        if (!existsSync(folderPath)) {
+          mkdirSync(folderPath, { recursive: true });
+        }
+
+        // Get files in subfolder
+        const files = await this.driveClient!.listFiles(folder.id);
+        for (const file of files) {
+          if (file.mimeType !== 'application/vnd.google-apps.folder') {
+            const content = await this.driveClient!.getFile(file.id);
+            writeFileSync(join(folderPath, file.name), content);
+          }
+        }
+      }
+    }
+
+    this.config!.selectedTask = taskName;
+    await saveConfig(this.projectRoot, this.config!);
   }
 
   async selectTask(taskId: string): Promise<void> {
