@@ -87,8 +87,14 @@ program
       }
 
       await artifact.selectTask(selectedTask.name, selectedTask.id, selectedFolderId);
+      
+      // Auto pull
+      const targetPath = join(projectRoot, '.sprint-artifact', selectedFolderName.toLowerCase().includes('sprint') ? 'sprints' : 'backlogs');
+      await artifact.pullTask(selectedTask.id, selectedTask.name, targetPath);
+      
       console.log(`✓ Active task: ${selectedTask.name}`);
       console.log(`  Folder: ${selectedFolderName}`);
+      console.log(`  Pulled to: .sprint-artifact/${selectedFolderName.toLowerCase().includes('sprint') ? 'sprints' : 'backlogs'}/${selectedTask.name}/`);
     } catch (error) {
       console.error('✗ Failed to select task:', error);
       process.exit(1);
