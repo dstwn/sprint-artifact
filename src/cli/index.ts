@@ -325,11 +325,15 @@ program
       console.log('─'.repeat(40));
       console.log(`Initialized: ${status.initialized ? 'Yes' : 'No'}`);
       if (status.initialized) {
-        console.log(`Folder ID: ${status.folderId}`);
+        console.log(`Root Folder ID: ${status.rootFolderId}`);
+        console.log(`Default Folder ID: ${status.defaultFolderId || '-'}`);
         console.log(`Year: ${status.year}`);
         console.log(`Selected Task: ${status.selectedTask || 'None'}`);
+        console.log(`  Task ID: ${status.selectedTaskId || '-'}`);
+        console.log(`  Task Type: ${status.selectedTaskType || '-'}`);
+        console.log(`  Task Folder ID: ${status.selectedTaskFolderId || '-'}`);
         console.log(`Last Sync: ${status.lastSync || 'Never'}`);
-        console.log(`Files: ${status.fileCount}`);
+        console.log(`Files in Manifest: ${status.fileCount}`);
       }
     } catch (error) {
       console.error('✗ Failed to get status:', error);

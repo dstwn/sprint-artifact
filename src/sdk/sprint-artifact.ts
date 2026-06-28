@@ -340,9 +340,13 @@ export class SprintArtifact {
 
   async status(): Promise<{
     initialized: boolean;
-    folderId: string;
+    rootFolderId: string;
     year: string;
+    defaultFolderId?: string;
     selectedTask?: string;
+    selectedTaskId?: string;
+    selectedTaskFolderId?: string;
+    selectedTaskType?: string;
     lastSync?: string;
     fileCount: number;
   }> {
@@ -351,9 +355,13 @@ export class SprintArtifact {
 
     return {
       initialized,
-      folderId: config?.googleDrive.folderId || '',
+      rootFolderId: config?.googleDrive.folderId || '',
       year: config?.googleDrive.year || '',
+      defaultFolderId: config?.googleDrive.defaultFolderId,
       selectedTask: config?.selectedTask,
+      selectedTaskId: config?.selectedTaskId,
+      selectedTaskFolderId: config?.selectedTaskFolderId,
+      selectedTaskType: config?.selectedTaskType,
       lastSync: config?.manifest?.lastSync,
       fileCount: config?.manifest?.files.length || 0,
     };
