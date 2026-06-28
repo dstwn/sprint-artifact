@@ -1,19 +1,14 @@
 import { join } from 'node:path';
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import type {
   SprintArtifactConfig,
   AuthConfig,
-  BacklogItem,
-  Sprint,
-  Task,
-  Manifest,
   ManifestFile,
 } from '../types/index.js';
 import {
   loadConfig,
   saveConfig,
   loadAuth,
-  saveAuth,
   getDefaultConfig,
 } from '../utils/config.js';
 import { GoogleDriveClient } from './google-drive.js';
@@ -77,7 +72,7 @@ export class SprintArtifact {
     // Auto-select as active task
     this.config!.selectedTask = folderName;
     this.config!.selectedTaskId = taskFolderId;
-    this.config!.selectedTaskFolderId = taskFolderId;
+    this.config!.selectedTaskFolderId = folderId;
     this.config!.selectedTaskType = 'backlogs';
 
     // Pull task locally
@@ -118,10 +113,7 @@ export class SprintArtifact {
     // Step 1: Pull all remote files (download to local)
     await this.pullFolder(this.config!.selectedTaskId, taskPath);
 
-    // Step 2: Pull all remote files (download to local)
-    await this.pullFolder(this.config!.selectedTaskId, taskPath);
-
-    // Step 3: Upload local files not on remote
+    // Step 2: Upload local files not on remote
     let uploaded = 0;
     await this.uploadLocalFiles(taskPath, this.config!.selectedTaskId, () => uploaded++);
 
@@ -136,7 +128,7 @@ export class SprintArtifact {
     let localCount = 0;
     this.countLocalFilesRecursive(taskPath, () => localCount++);
 
-    return { added: allRemoteFiles.length - localCount + uploaded, updated: 0, deleted: 0 };
+    return { added: allRemoteFiles.length, updated: 0, deleted: 0 };
   }
 
   private async uploadLocalFiles(
@@ -222,7 +214,6 @@ export class SprintArtifact {
       if (!existsSync(join(this.projectRoot, '.sprint-artifact', 'sprints'))) {
         mkdirSync(join(this.projectRoot, '.sprint-artifact', 'sprints'), { recursive: true });
       }
-      const { renameSync } = await import('node:fs');
       renameSync(oldPath, newPath);
     }
 
@@ -246,9 +237,6 @@ export class SprintArtifact {
 
     // Recursively pull
     await this.pullFolder(taskFolderId, taskPath);
-
-    this.config!.selectedTask = taskName;
-    await saveConfig(this.projectRoot, this.config!);
   }
 
   private async pullFolder(folderId: string, localPath: string): Promise<void> {
@@ -381,21 +369,5 @@ export class SprintArtifact {
       files: remoteFiles,
     };
     await saveConfig(this.projectRoot, this.config!);
-  }
-
-  private formatBacklogItem(item: BacklogItem): string {
-    return `---
-id: ${item.id}
-title: ${item.title}
-priority: ${item.priority}
-status: ${item.status}
-created: ${item.createdAt}
-updated: ${item.updatedAt}
----
-
-# ${item.title}
-
-${item.description}
-`;
   }
 }

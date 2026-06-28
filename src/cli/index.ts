@@ -73,9 +73,10 @@ program
       let selectedTask: { name: string; id: string };
 
       if (options.taskId) {
-        const task = taskFolders.find(t => t.name.startsWith(options.taskId));
+        const task = taskFolders.find(t => t.name.startsWith(options.taskId + ' '));
         if (!task) {
-          console.error(`✗ Task "${options.taskId}" not found.`);
+          console.error(`✗ Task "${options.taskId}" not found. Available tasks:`);
+          taskFolders.forEach(t => console.error(`  ${t.name}`));
           process.exit(1);
         }
         selectedTask = task;
@@ -423,9 +424,10 @@ program
       let selectedTaskName: string;
 
       if (options.taskId) {
-        const task = taskFolders.find(f => f.name.startsWith(options.taskId));
+        const task = taskFolders.find(f => f.name.startsWith(options.taskId + ' '));
         if (!task) {
-          console.error(`✗ Task "${options.taskId}" not found.`);
+          console.error(`✗ Task "${options.taskId}" not found. Available tasks:`);
+          taskFolders.forEach(t => console.error(`  ${t.name}`));
           process.exit(1);
         }
         selectedTaskId = task.id;

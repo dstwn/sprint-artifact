@@ -40,6 +40,7 @@ const MoveToSprintSchema = z.object({
 const SelectTaskSchema = z.object({
   taskName: z.string(),
   taskId: z.string(),
+  folderId: z.string().optional(),
   taskType: z.enum(['backlogs', 'sprints']).optional(),
 });
 
@@ -108,6 +109,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           properties: {
             taskName: { type: 'string', description: 'Task display name (e.g., "IDS-123 Fix login bug")' },
             taskId: { type: 'string', description: 'Task folder ID' },
+            folderId: { type: 'string', description: 'Parent folder ID (optional, uses taskId if not provided)' },
             taskType: { type: 'string', enum: ['backlogs', 'sprints'], description: 'Task type (default: backlogs)' },
           },
           required: ['taskName', 'taskId'],
@@ -245,9 +247,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'select_task': {
-        const { taskName, taskId, taskType } = SelectTaskSchema.parse(args);
-        await artifact.selectTask(taskName, taskId, taskId, taskType);
-        return { content: [{ type: 'text', text: `Selected task: ${taskName}` }] };
+        const { taskName, taskId, folderId, taskType } = SelectTaskSchema.parse(args);
+        const parentFolderId = folderId || taskId;
+        await artifact.selectTask(taskName, taskId, parentFolderId, taskType);
+        const ttype = taskType || 'backlogs';
+        const targetPath = join(projectRoot, '.sprint-artifact', ttype);
+        await artifact.pullTask(taskId, taskName, targetPath);
+        return { content: [{ type: 'text', text: `Selected task: ${taskName}. Pulled to .sprint-artifact/${ttype}/${taskName}/` }] };
       }
 
       case 'pull_task': {
@@ -273,9 +279,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           if (!found) throw new Error(`Subfolder "${subfolder}" not found in task.`);
           targetFolderId = found.id;
         } else {
-          const names = folders.map(f => f.name);
-          targetFolderId = folders[0]?.id;
-          if (!targetFolderId) throw new Error('No subfolders found in task.');
+          const available = folders.map(f => f.name).join(', ');
+          throw new Error(`No subfolder specified. Available: ${available}`);
         }
 
         await artifact.pushToFolder(targetFolderId);

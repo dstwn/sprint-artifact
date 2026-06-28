@@ -154,23 +154,74 @@ export class GoogleDriveClient {
       `--${boundary}--`,
     ].join('\r\n');
 
-    try {
-      const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id&supportsAllDrives=true', {
+    async function doFetch(token: string): Promise<Response> {
+      return fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id&supportsAllDrives=true', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': `multipart/related; boundary=${boundary}`,
         },
         body: multipartBody,
       });
+    }
+
+    try {
+      let res = await doFetch(this.accessToken);
+      if (res.status === 401) {
+        await this.refreshAccessToken();
+        res = await doFetch(this.accessToken);
+      }
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`Google Drive API error (${res.status}): ${errText}`);
+      }
       const data = await res.json() as any;
+      if (!data.id) throw new Error('Failed to create file: no ID returned');
       return data.id;
     } catch {
       const result = execSync(
         `curl -s -X POST "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id&supportsAllDrives=true" -H "Authorization: Bearer ${this.accessToken}" -H "Content-Type: multipart/related; boundary=${boundary}" -d '${multipartBody.replace(/'/g, "\\'")}'`,
         { encoding: 'utf-8' }
       );
-      return JSON.parse(result).id;
+      const data = JSON.parse(result);
+      if (data.error?.code === 401) {
+        await this.refreshAccessToken();
+        return this.createFile(name, content, parentId, mimeType);
+      }
+      if (!data.id) throw new Error('Failed to create file: ' + (data.error?.message || JSON.stringify(data)));
+      return data.id;
+    }
+  }
+
+  async updateFile(fileId: string, content: string, mimeType = 'text/markdown'): Promise<void> {
+    const url = `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`;
+
+    async function doFetch(token: string): Promise<Response> {
+      return fetch(url, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': mimeType,
+        },
+        body: content,
+      });
+    }
+
+    try {
+      let res = await doFetch(this.accessToken);
+      if (res.status === 401) {
+        await this.refreshAccessToken();
+        res = await doFetch(this.accessToken);
+      }
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`Google Drive API error (${res.status}): ${errText}`);
+      }
+    } catch {
+      execSync(
+        `curl -s -X PATCH "${url}" -H "Authorization: Bearer ${this.accessToken}" -H "Content-Type: ${mimeType}" -d '${content.replace(/'/g, "\\'")}'`,
+        { encoding: 'utf-8' }
+      );
     }
   }
 
@@ -201,24 +252,6 @@ export class GoogleDriveClient {
         { encoding: 'utf-8' }
       );
       return result;
-    }
-  }
-
-  async updateFile(fileId: string, content: string, mimeType = 'text/markdown'): Promise<void> {
-    try {
-      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
-          'Content-Type': mimeType,
-        },
-        body: content,
-      });
-    } catch {
-      execSync(
-        `curl -s -X PATCH "https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media" -H "Authorization: Bearer ${this.accessToken}" -H "Content-Type: ${mimeType}" -d '${content.replace(/'/g, "\\'")}'`,
-        { encoding: 'utf-8' }
-      );
     }
   }
 
