@@ -265,8 +265,8 @@ const backlogCmd = program
 backlogCmd
   .command('create')
   .description('Create a new backlog item')
-  .requiredOption('--id <id>', 'Task ID (e.g., IDS-123)')
-  .requiredOption('--title <title>', 'Task title')
+  .option('--id <id>', 'Task ID (e.g., IDS-123)')
+  .option('--title <title>', 'Task title')
   .action(async (options) => {
     try {
       const projectRoot = resolve(process.cwd());
@@ -281,10 +281,13 @@ backlogCmd
         process.exit(1);
       }
 
-      await artifact.createBacklog(options.id, options.title, config.googleDrive.defaultFolderId);
+      const id = options.id || await input({ message: 'Enter task ID:', required: true });
+      const title = options.title || await input({ message: 'Enter task title:', required: true });
+
+      await artifact.createBacklog(id, title, config.googleDrive.defaultFolderId);
       console.log('✓ Backlog item created');
-      console.log(`  ID: ${options.id}`);
-      console.log(`  Title: ${options.title}`);
+      console.log(`  ID: ${id}`);
+      console.log(`  Title: ${title}`);
     } catch (error) {
       console.error('✗ Failed to create backlog item:', error);
       process.exit(1);
