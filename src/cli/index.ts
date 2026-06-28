@@ -110,21 +110,45 @@ program
       const projectRoot = resolve(process.cwd());
       const artifact = new SprintArtifact(projectRoot);
       
-      const { loadConfig } = await import('../utils/config.js');
+      const { loadConfig, loadAuth } = await import('../utils/config.js');
       const config = await loadConfig(projectRoot);
+      const auth = await loadAuth(projectRoot);
       
-      if (!config?.selectedTaskId) {
+      if (!config?.selectedTaskId || !auth) {
         console.error('✗ No active task. Run `sprint-artifact select` first.');
         process.exit(1);
       }
 
+      const { GoogleDriveClient } = await import('../sdk/google-drive.js');
+      const driveClient = new GoogleDriveClient(auth);
+
+      // Get subfolders from active task
+      const subfolders = await driveClient.listFiles(config.selectedTaskId);
+      const folders = subfolders.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
+
+      let targetFolderId: string;
+      let targetFolderName: string;
+
       if (options.techDocs) {
-        await artifact.pushTechDocs();
-        console.log('✓ Pushed to 02. Technical Documents');
+        const techDocsFolder = folders.find(f => f.name === '02. Technical Documents');
+        if (!techDocsFolder) {
+          console.error('✗ 02. Technical Documents folder not found.');
+          process.exit(1);
+        }
+        targetFolderId = techDocsFolder.id;
+        targetFolderName = techDocsFolder.name;
       } else {
-        console.error('✗ Specify what to push (e.g., --tech-docs)');
-        process.exit(1);
+        // Interactive select
+        const selected = await select({
+          message: 'Select destination:',
+          choices: folders.map(f => ({ name: f.name, value: f.id })),
+        });
+        targetFolderId = selected;
+        targetFolderName = folders.find(f => f.id === selected)?.name || '';
       }
+
+      await artifact.pushToFolder(targetFolderId);
+      console.log(`✓ Pushed to ${targetFolderName}`);
     } catch (error) {
       console.error('✗ Failed to push:', error);
       process.exit(1);

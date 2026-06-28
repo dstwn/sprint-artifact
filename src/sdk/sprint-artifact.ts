@@ -183,6 +183,26 @@ export class SprintArtifact {
     await saveConfig(this.projectRoot, this.config!);
   }
 
+  async pushToFolder(targetFolderId: string): Promise<void> {
+    await this.ensureInitialized();
+
+    // Read files from local .planning folder
+    const planningPath = join(this.projectRoot, '.planning');
+    if (!existsSync(planningPath)) {
+      throw new Error('.planning folder not found.');
+    }
+
+    // Upload files to Google Drive
+    const { readdirSync, readFileSync } = await import('node:fs');
+    const files = readdirSync(planningPath);
+    
+    for (const file of files) {
+      const filePath = join(planningPath, file);
+      const content = readFileSync(filePath, 'utf-8');
+      await this.driveClient!.createFile(file, content, targetFolderId);
+    }
+  }
+
   async pushTechDocs(): Promise<void> {
     await this.ensureInitialized();
 
@@ -201,21 +221,7 @@ export class SprintArtifact {
       throw new Error('02. Technical Documents folder not found in task.');
     }
 
-    // Read files from local .planning folder
-    const planningPath = join(this.projectRoot, '.planning');
-    if (!existsSync(planningPath)) {
-      throw new Error('.planning folder not found.');
-    }
-
-    // Upload files to Google Drive
-    const { readdirSync, readFileSync } = await import('node:fs');
-    const files = readdirSync(planningPath);
-    
-    for (const file of files) {
-      const filePath = join(planningPath, file);
-      const content = readFileSync(filePath, 'utf-8');
-      await this.driveClient!.createFile(file, content, techDocsFolder.id);
-    }
+    await this.pushToFolder(techDocsFolder.id);
   }
 
   async status(): Promise<{
