@@ -27,11 +27,11 @@ export class SprintArtifact {
     this.projectRoot = projectRoot;
   }
 
-  async init(folderId: string, year?: string): Promise<void> {
+  async init(folderId: string, year?: string, defaultFolderId?: string): Promise<void> {
     const currentYear = year || new Date().getFullYear().toString();
     this.config = {
       ...getDefaultConfig(),
-      googleDrive: { folderId, year: currentYear },
+      googleDrive: { folderId, year: currentYear, defaultFolderId },
     };
     await saveConfig(this.projectRoot, this.config);
 

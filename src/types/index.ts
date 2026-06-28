@@ -3,6 +3,7 @@ export interface SprintArtifactConfig {
   googleDrive: {
     folderId: string;
     year: string;
+    defaultFolderId?: string;
     brdId?: string;
     prdId?: string;
     planningId?: string;
