@@ -143,7 +143,7 @@ describe('login', () => {
   it('should reject on server error event', async () => {
     vi.mocked(existsSync).mockReturnValue(false);
     vi.mocked(readFile).mockResolvedValue(JSON.stringify({ installed: { client_id: 'id', client_secret: 'sec' } }));
-    serverMock.on.mockImplementation((event: string, cb: any) => { if (event === 'error') setImmediate(() => cb(new Error('Server error'))); });
+    serverMock.on.mockImplementation((event: string, cb: any) => { if (event === 'error') cb(new Error('Server error')); });
 
     const loginPromise = login({ credentialsPath: '/c.json' });
     await new Promise(r => setTimeout(r, 0));
