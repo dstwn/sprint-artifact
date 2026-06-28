@@ -149,29 +149,31 @@ export class SprintArtifact {
       mkdirSync(taskPath, { recursive: true });
     }
 
-    // Get subfolders
-    const subfolders = await this.driveClient!.listFiles(taskFolderId);
-    
-    for (const folder of subfolders) {
-      if (folder.mimeType === 'application/vnd.google-apps.folder') {
-        const folderPath = join(taskPath, folder.name);
-        if (!existsSync(folderPath)) {
-          mkdirSync(folderPath, { recursive: true });
-        }
-
-        // Get files in subfolder
-        const files = await this.driveClient!.listFiles(folder.id);
-        for (const file of files) {
-          if (file.mimeType !== 'application/vnd.google-apps.folder') {
-            const content = await this.driveClient!.getFile(file.id);
-            writeFileSync(join(folderPath, file.name), content);
-          }
-        }
-      }
-    }
+    // Recursively pull
+    await this.pullFolder(taskFolderId, taskPath);
 
     this.config!.selectedTask = taskName;
     await saveConfig(this.projectRoot, this.config!);
+  }
+
+  private async pullFolder(folderId: string, localPath: string): Promise<void> {
+    const items = await this.driveClient!.listFiles(folderId);
+    
+    for (const item of items) {
+      const itemPath = join(localPath, item.name);
+      
+      if (item.mimeType === 'application/vnd.google-apps.folder') {
+        // Create folder and recurse
+        if (!existsSync(itemPath)) {
+          mkdirSync(itemPath, { recursive: true });
+        }
+        await this.pullFolder(item.id, itemPath);
+      } else {
+        // Download file
+        const content = await this.driveClient!.getFile(item.id);
+        writeFileSync(itemPath, content);
+      }
+    }
   }
 
   async selectTask(taskName: string, taskId: string, folderId: string): Promise<void> {
