@@ -5,7 +5,7 @@ import { SprintArtifact } from '../sdk/index.js';
 import { resolve, join } from 'node:path';
 import { login } from '../utils/oauth2.js';
 import { saveAuth } from '../utils/config.js';
-import { select } from '@inquirer/prompts';
+import { select, input } from '@inquirer/prompts';
 
 const program = new Command();
 
@@ -188,9 +188,8 @@ program
 program
   .command('init')
   .description('Initialize a new Sprint Artifact project')
-  .requiredOption('--folder-id <id>', 'Google Drive folder ID')
+  .option('--folder-id <id>', 'Google Drive folder ID')
   .option('--year <year>', 'Year folder (e.g., 2026)')
-  .option('--auth <path>', 'Path to auth JSON file')
   .action(async (options) => {
     try {
       const projectRoot = resolve(process.cwd());
@@ -204,10 +203,16 @@ program
         process.exit(1);
       }
 
+      // Ask for folder ID if not provided
+      const folderId = options.folderId || await input({
+        message: 'Enter Google Drive folder ID:',
+        validate: (value) => value.length > 0 || 'Folder ID is required',
+      });
+
       // Get year folders from Google Drive
       const { GoogleDriveClient } = await import('../sdk/google-drive.js');
       const driveClient = new GoogleDriveClient(auth);
-      const folders = await driveClient.listFiles(options.folderId);
+      const folders = await driveClient.listFiles(folderId);
       const yearFolders = folders
         .filter(f => f.mimeType === 'application/vnd.google-apps.folder' && /^\d{4}$/.test(f.name))
         .map(f => f.name)
@@ -242,9 +247,9 @@ program
         choices: subFolders.map(f => ({ name: f.name, value: f.id })),
       });
 
-      await artifact.init(options.folderId, year, defaultFolderId);
+      await artifact.init(folderId, year, defaultFolderId);
       console.log('✓ Sprint Artifact project initialized');
-      console.log(`  Folder ID: ${options.folderId}`);
+      console.log(`  Folder ID: ${folderId}`);
       console.log(`  Year: ${year}`);
       console.log('  Config: .sprint-artifact/config.json');
     } catch (error) {
