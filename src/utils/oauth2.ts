@@ -125,7 +125,7 @@ export async function login(options?: {
 
   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(SCOPES[0])}&access_type=offline&prompt=consent`;
 
-  return new Promise((resolve, reject) => {
+  return await new Promise((resolve, reject) => {
     const callbackServer = createServer(async (req, res) => {
       const url = new URL(req.url!, `http://localhost`);
 

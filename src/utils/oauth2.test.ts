@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('node:fs', () => ({ existsSync: vi.fn() }));
 vi.mock('node:fs/promises', () => ({ readFile: vi.fn(), writeFile: vi.fn(), mkdir: vi.fn() }));
@@ -72,8 +72,11 @@ describe('saveCredentialsGlobal', () => {
 describe('login', () => {
   let serverMock: any;
 
+  let origStdin: typeof process.stdin;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    origStdin = process.stdin;
 
     serverMock = {
       listen: vi.fn((_port: any, cb: () => void) => { serverMock._addr = { port: 34567 }; cb(); }),
@@ -85,6 +88,10 @@ describe('login', () => {
 
     const stdinMock = { setEncoding: vi.fn(), resume: vi.fn(), on: vi.fn() };
     Object.defineProperty(process, 'stdin', { value: stdinMock, writable: true });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(process, 'stdin', { value: origStdin, writable: true });
   });
 
   it('should resolve with credentials from credentialsPath', async () => {
