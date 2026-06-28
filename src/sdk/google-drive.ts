@@ -175,8 +175,33 @@ export class GoogleDriveClient {
   }
 
   async getFile(fileId: string): Promise<string> {
-    const data = await this.request('GET', `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
-    return typeof data === 'string' ? data : JSON.stringify(data);
+    try {
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+        },
+      });
+
+      // If 401, refresh token and retry
+      if (res.status === 401) {
+        await this.refreshAccessToken();
+        const retryRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+          headers: {
+            'Authorization': `Bearer ${this.accessToken}`,
+          },
+        });
+        return await retryRes.text();
+      }
+
+      return await res.text();
+    } catch {
+      // Fallback to curl
+      const result = execSync(
+        `curl -s "https://www.googleapis.com/drive/v3/files/${fileId}?alt=media" -H "Authorization: Bearer ${this.accessToken}"`,
+        { encoding: 'utf-8' }
+      );
+      return result;
+    }
   }
 
   async updateFile(fileId: string, content: string, mimeType = 'text/markdown'): Promise<void> {
