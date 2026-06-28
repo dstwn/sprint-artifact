@@ -67,8 +67,9 @@ Interactive prompts:
 # Select active task (interactive + auto pull)
 sprint-artifact select
 
-# Create backlog item dengan folder structure
-sprint-artifact backlog create --id IDS-123 --title "Fix login bug"
+# Create backlog item dengan folder structure (auto-select + auto-pull)
+sprint-artifact backlog create                           # interactive prompts
+sprint-artifact backlog create --id IDS-123 --title "Fix login bug"  # non-interactive
 ```
 
 ### Pull & Push
@@ -99,7 +100,7 @@ Interactive prompts:
 ### Sync & Status
 
 ```bash
-# Sync manifest dengan Google Drive
+# Sync dari active task (pull file baru/updated + upload file lokal baru)
 sprint-artifact sync
 
 # Lihat status project
@@ -113,11 +114,11 @@ sprint-artifact status
 | `login` | Login dengan Google account |
 | `init` | Initialize project (pilih tahun & folder) |
 | `select` | Pilih active task + auto pull ke local |
-| `backlog create` | Buat backlog item dengan folder structure |
+| `backlog create` | Buat backlog item + auto-select + auto-pull ke local |
 | `pull` | Pull task dari Google Drive ke local |
 | `push` | Push file dari local ke Google Drive + auto pull |
-| `sprint move` | Pindahkan task antar folder (interactive) |
-| `sync` | Sync manifest dengan Google Drive |
+| `sprint move` | Pindahkan task antar folder (local folder ikut pindah) |
+| `sync` | Sync active task (pull remote + upload local baru) |
 | `status` | Lihat status project |
 
 ## MCP Server
@@ -167,8 +168,8 @@ await artifact.pushToFolder('target-folder-id');
 // Pull task
 await artifact.pullTask('task-folder-id', 'IDS-123 Fix login bug', './local-path');
 
-// Move task ke folder lain
-await artifact.moveToSprint('task-folder-id', 'new-parent-folder-id');
+// Move task ke folder lain (local folder ikut pindah)
+await artifact.moveToSprint('task-folder-id', 'new-parent-folder-id', 'IDS-123 Fix login bug');
 
 // Sync manifest
 const result = await artifact.sync();
@@ -251,33 +252,33 @@ sprint-artifact select
 
 # 2. Edit file di local (.sprint-artifact/backlogs/...)
 
-# 3. Push perubahan ke Google Drive (otomatis pull balik)
+# 3. Push perubahan ke Google Drive (otomatis pull balik + sync)
 sprint-artifact push
 
-# 4. Sync manifest
+# 4. Sync (cek perubahan dari remote)
 sprint-artifact sync
 ```
 
 ### Create New Task
 
 ```bash
-# 1. Buat task di Google Drive
-sprint-artifact backlog create --id IDS-123 --title "Fix login bug"
+# 1. Buat task di Google Drive (otomatis select + pull ke local)
+sprint-artifact backlog create
 
-# 2. Select task (otomatis pull ke local)
-sprint-artifact select
+# 2. Edit file di local (.sprint-artifact/backlogs/...)
 
-# 3. Edit dan push
+# 3. Push dan sync
 sprint-artifact push --tech-docs
+sprint-artifact sync
 ```
 
 ### Move Task to Sprint
 
 ```bash
-# 1. Move task dari Backlogs ke Sprint (interactive)
+# 1. Move task dari Backlogs ke Sprint (local folder ikut pindah)
 sprint-artifact sprint move
 
-# 2. Select task yang sudah dipindah
+# 2. Select task yang sudah dipindah (otomatis pull ke .sprint-artifact/sprints/)
 sprint-artifact select
 ```
 
