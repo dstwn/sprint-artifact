@@ -148,7 +148,12 @@ program
       }
 
       await artifact.pushToFolder(targetFolderId);
+      
+      // Auto sync after push
+      await artifact.sync();
+      
       console.log(`✓ Pushed to ${targetFolderName}`);
+      console.log('✓ Synced');
     } catch (error) {
       console.error('✗ Failed to push:', error);
       process.exit(1);
