@@ -46,24 +46,39 @@ program
   .option('--auth <path>', 'Path to auth JSON file')
   .action(async (options) => {
     try {
+      const projectRoot = resolve(process.cwd());
+      const artifact = new SprintArtifact(projectRoot);
+      
+      // Load auth first to access Google Drive
+      const { loadAuth } = await import('../utils/config.js');
+      const auth = await loadAuth(projectRoot);
+      if (!auth) {
+        console.error('✗ Not logged in. Run `sprint-artifact login` first.');
+        process.exit(1);
+      }
+
+      // Get year folders from Google Drive
+      const { GoogleDriveClient } = await import('../sdk/google-drive.js');
+      const driveClient = new GoogleDriveClient(auth);
+      const folders = await driveClient.listFiles(options.folderId);
+      const yearFolders = folders
+        .filter(f => f.mimeType === 'application/vnd.google-apps.folder' && /^\d{4}$/.test(f.name))
+        .map(f => f.name)
+        .sort((a, b) => b.localeCompare(a)); // Newest first
+
       const currentYear = new Date().getFullYear().toString();
-      const years = [currentYear, (parseInt(currentYear) - 1).toString(), (parseInt(currentYear) - 2).toString()];
+      const allYears = yearFolders.includes(currentYear) ? yearFolders : [currentYear, ...yearFolders];
 
       const year = options.year || await select({
         message: 'Select year:',
-        choices: years.map(y => ({ name: y, value: y })),
+        choices: allYears.map(y => ({ name: y, value: y })),
       });
 
-      const projectRoot = resolve(process.cwd());
-      const artifact = new SprintArtifact(projectRoot);
       await artifact.init(options.folderId, year);
       console.log('✓ Sprint Artifact project initialized');
       console.log(`  Folder ID: ${options.folderId}`);
       console.log(`  Year: ${year}`);
       console.log('  Config: .sprint-artifact/config.json');
-      if (options.auth) {
-        console.log(`  Auth: ${options.auth}`);
-      }
     } catch (error) {
       console.error('✗ Failed to initialize:', error);
       process.exit(1);
