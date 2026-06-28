@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.1] - 2026-06-29
+
+### Fixed
+- `select --task-id` / `pull --task-id` prefix match (nambah spasi biar `ABC` gak match ke `ABCD Task`)
+- `createFile` dan `updateFile` 401 token refresh + error response checking
+- MCP `select_task` auto-pull setelah select + optional `folderId` parameter
+- MCP `push_task` error message lebih jelas saat subfolder tidak specified
+- Cleanup dead code (duplicate `createFile`/`updateFile`, unused imports, `formatBacklogItem`)
+- `renameSync` ganti ke static import biar gak inline dynamic import
+
 ## [0.6.0] - 2026-06-28
 
 ### Added
