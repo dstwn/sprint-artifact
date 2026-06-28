@@ -107,11 +107,31 @@ sprint-artifact sync
 sprint-artifact status
 ```
 
+### Install AI Assistant Integration
+
+```bash
+# Install MCP config untuk semua assistant (cursor, opencode, claude, copilot)
+sprint-artifact install
+
+# Install untuk assistant tertentu
+sprint-artifact install cursor
+sprint-artifact install opencode
+sprint-artifact install claude
+sprint-artifact install copilot
+
+# Install skill file aja
+sprint-artifact install skill
+
+# Install semua (termasuk skill)
+sprint-artifact install all
+```
+
 ## Command Reference
 
 | Command | Description |
 |---------|-------------|
 | `mcp` | Run MCP server untuk AI assistant integration |
+| `install` | Install MCP config + skill untuk AI coding assistants |
 | `login` | Login dengan Google account |
 | `init` | Initialize project (pilih tahun & folder) |
 | `select` | Pilih active task + auto pull ke local |

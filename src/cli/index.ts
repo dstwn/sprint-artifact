@@ -542,4 +542,19 @@ program
     await main();
   });
 
+program
+  .command('install')
+  .description('Install MCP configuration for AI coding assistants')
+  .argument('[assistant]', 'Assistant to configure (cursor|opencode|claude|copilot|skill|all)', 'all')
+  .action(async (assistant: string) => {
+    try {
+      const { install } = await import('./install.js');
+      const projectRoot = resolve(process.cwd());
+      await install(projectRoot, assistant);
+    } catch (error) {
+      console.error('✗ Failed to install:', error);
+      process.exit(1);
+    }
+  });
+
 program.parse();
