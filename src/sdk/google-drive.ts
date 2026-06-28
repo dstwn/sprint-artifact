@@ -3,16 +3,69 @@ import type { AuthConfig, ManifestFile, OAuth2Credentials } from '../types/index
 
 export class GoogleDriveClient {
   private accessToken: string;
+  private refreshToken: string;
+  private clientId: string;
+  private clientSecret: string;
+  private authConfig: AuthConfig;
 
   constructor(auth: AuthConfig) {
+    this.authConfig = auth;
     if (auth.type === 'oauth2') {
-      this.accessToken = (auth.credentials as OAuth2Credentials).access_token || '';
+      const creds = auth.credentials as OAuth2Credentials;
+      this.accessToken = creds.access_token || '';
+      this.refreshToken = creds.refresh_token || '';
+      this.clientId = creds.client_id;
+      this.clientSecret = creds.client_secret;
     } else {
       this.accessToken = '';
+      this.refreshToken = '';
+      this.clientId = '';
+      this.clientSecret = '';
     }
   }
 
-  private async request(method: string, url: string, body?: any): Promise<any> {
+  private async refreshAccessToken(): Promise<void> {
+    if (!this.refreshToken) {
+      throw new Error('No refresh token available. Please login again.');
+    }
+
+    const body = new URLSearchParams({
+      client_id: this.clientId,
+      client_secret: this.clientSecret,
+      refresh_token: this.refreshToken,
+      grant_type: 'refresh_token',
+    });
+
+    try {
+      const res = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        body,
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      });
+      const data = await res.json() as any;
+      
+      if (data.error) {
+        throw new Error(`Refresh failed: ${data.error}`);
+      }
+
+      this.accessToken = data.access_token;
+    } catch {
+      // Fallback to curl
+      const result = execSync(
+        `curl -s -X POST "https://oauth2.googleapis.com/token" -d "${body.toString()}"`,
+        { encoding: 'utf-8' }
+      );
+      const data = JSON.parse(result);
+      
+      if (data.error) {
+        throw new Error(`Refresh failed: ${data.error}`);
+      }
+
+      this.accessToken = data.access_token;
+    }
+  }
+
+  private async request(method: string, url: string, body?: any, retry = true): Promise<any> {
     try {
       const headers = {
         'Authorization': `Bearer ${this.accessToken}`,
@@ -29,12 +82,27 @@ export class GoogleDriveClient {
       }
 
       const res = await fetch(url, options);
+      
+      // If 401, refresh token and retry
+      if (res.status === 401 && retry) {
+        await this.refreshAccessToken();
+        return this.request(method, url, body, false);
+      }
+
       return await res.json();
     } catch {
       // Fallback to curl
       const curlCmd = `curl -s -X ${method} "${url}" -H "Authorization: Bearer ${this.accessToken}" -H "Content-Type: application/json"`;
       const result = execSync(body ? `${curlCmd} -d '${JSON.stringify(body)}'` : curlCmd, { encoding: 'utf-8' });
-      return JSON.parse(result);
+      const data = JSON.parse(result);
+      
+      // If 401, refresh token and retry
+      if (data.error?.code === 401 && retry) {
+        await this.refreshAccessToken();
+        return this.request(method, url, body, false);
+      }
+
+      return data;
     }
   }
 
