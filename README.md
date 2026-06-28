@@ -2,51 +2,90 @@
 
 Sprint Artifact management tool with Google Drive integration.
 
-## Architecture
+Manage your sprint artifacts (BRD, PRD, tasks, backlogs) directly from CLI or AI assistants (Cursor, Claude, Codex, OpenCode).
 
-```
-Google Drive <-> Core SDK <-> CLI/MCP <-> Cursor/Claude/Codex/OpenCode
-```
+## Features
 
-## Installation
+- **CLI** - Full command-line interface for sprint management
+- **MCP Server** - Integration with AI coding assistants
+- **SDK** - Programmatic access for custom workflows
+- **Google Drive Sync** - Bi-directional sync with Google Drive
+- **OAuth2 Login** - Simple Google account login for team members
+
+## Quick Start
+
+### Install
 
 ```bash
-npm install
-npm run build
+npm install -g sprint-artifact
 ```
 
-## CLI Usage
+### Setup Google Cloud
+
+1. Buka [Google Cloud Console](https://console.cloud.google.com)
+2. Buat/select project
+3. Enable **Google Drive API** (APIs & Services > Library)
+4. Buat **OAuth consent screen** (APIs & Services > OAuth consent screen)
+   - User Type: **Internal** (Workspace) atau **External**
+   - App name: `sprint-artifact`
+5. Buat **OAuth 2.0 Client ID** (APIs & Services > Credentials)
+   - Application type: **Desktop app**
+   - Download JSON
+
+### Login
 
 ```bash
-# Initialize project
+# Taruh credentials.json di folder project atau ~/.sprint-artifact/
+cp ~/Downloads/credentials.json ./credentials.json
+
+# Login dengan Google account
+sprint-artifact login
+```
+
+Browser terbuka > pilih akun Google > selesai.
+
+### Initialize Project
+
+```bash
+# Buat folder di Google Drive, copy folder ID dari URL
 sprint-artifact init --folder-id <GOOGLE_DRIVE_FOLDER_ID>
+```
 
-# Create backlog item
-sprint-artifact backlog create --title "Feature" --description "Description" --priority high
+## CLI Commands
 
-# Sync with Google Drive
+```bash
+# Login dengan Google account
+sprint-artifact login [--credentials <path>]
+
+# Initialize project
+sprint-artifact init --folder-id <FOLDER_ID>
+
+# Buat backlog item
+sprint-artifact backlog create --title "Feature" --desc "Description" --priority high
+
+# Sync dengan Google Drive
 sprint-artifact sync
 
-# Show status
+# Lihat status
 sprint-artifact status
 
-# Select task
+# Pilih task yang sedang dikerjakan
 sprint-artifact select <TASK_ID>
 
-# Move backlog to sprint
-sprint-artifact sprint move --backlog-id <BACKLOG_ID> --sprint-id <SPRINT_ID>
+# Pindahkan backlog ke sprint
+sprint-artifact sprint move --backlog-id <ID> --sprint-id <ID>
 ```
 
 ## MCP Server
 
-Add to your MCP configuration:
+Tambahkan ke konfigurasi MCP (Cursor, Claude, dll):
 
 ```json
 {
   "mcpServers": {
     "sprint-artifact": {
-      "command": "node",
-      "args": ["dist/mcp/index.js"]
+      "command": "sprint-artifact",
+      "args": ["mcp"]
     }
   }
 }
@@ -54,11 +93,13 @@ Add to your MCP configuration:
 
 ### Available Tools
 
-- `backlog_create` - Create a new backlog item
-- `sync_documents` - Sync documents with Google Drive
-- `move_to_sprint` - Move a backlog item to a sprint
-- `status` - Get current project status
-- `select_task` - Select a task to work on
+| Tool | Description |
+|------|-------------|
+| `backlog_create` | Buat backlog item baru |
+| `sync_documents` | Sync dokumen dengan Google Drive |
+| `move_to_sprint` | Pindahkan backlog ke sprint |
+| `status` | Lihat status project |
+| `select_task` | Pilih task yang sedang dikerjakan |
 
 ## SDK Usage
 
@@ -66,9 +107,16 @@ Add to your MCP configuration:
 import { SprintArtifact } from 'sprint-artifact';
 
 const artifact = new SprintArtifact(process.cwd());
+
+// Login (hanya perlu sekali)
 await artifact.init('GOOGLE_DRIVE_FOLDER_ID');
-await artifact.createBacklog('Feature', 'Description', 'high');
-await artifact.sync();
+
+// Buat backlog
+await artifact.createBacklog('Feature A', 'Description', 'high');
+
+// Sync dengan Google Drive
+const result = await artifact.sync();
+console.log(`Added: ${result.added}, Updated: ${result.updated}`);
 ```
 
 ## Configuration
@@ -91,22 +139,22 @@ await artifact.sync();
 
 ### `.sprint-artifact/auth.json`
 
-Service Account:
-```json
-{
-  "type": "service_account",
-  "credentials": {
-    "type": "service_account",
-    "project_id": "...",
-    "private_key_id": "...",
-    "private_key": "...",
-    "client_email": "...",
-    "client_id": "...",
-    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-    "token_uri": "https://oauth2.googleapis.com/token"
-  }
-}
+Auto-generated saat login. Jangan commit ke repository.
+
+## Project Structure
+
 ```
+.sprint-artifact/
+├── config.json    # Project config (folder ID, manifest)
+└── auth.json      # OAuth2 tokens (auto-generated)
+```
+
+## Security
+
+- `auth.json` dan `credentials.json` di-**gitignore** secara default
+- Setiap user login dengan akun Google masing-masing
+- Token tersimpan lokal di tiap komputer
+- Untuk team, share `credentials.json` via internal docs (bukan public repo)
 
 ## License
 
