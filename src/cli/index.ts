@@ -92,21 +92,16 @@ const backlogCmd = program
 backlogCmd
   .command('create')
   .description('Create a new backlog item')
-  .requiredOption('--title <title>', 'Backlog item title')
-  .option('--description <desc>', 'Backlog item description', '')
-  .option('--priority <priority>', 'Priority (high, medium, low)', 'medium')
+  .requiredOption('--id <id>', 'Task ID (e.g., IDS-123)')
+  .requiredOption('--title <title>', 'Task title')
   .action(async (options) => {
     try {
       const projectRoot = resolve(process.cwd());
       const artifact = new SprintArtifact(projectRoot);
-      const item = await artifact.createBacklog(
-        options.title,
-        options.description,
-        options.priority
-      );
+      await artifact.createBacklog(options.id, options.title);
       console.log('✓ Backlog item created');
-      console.log(`  ID: ${item.id}`);
-      console.log(`  Title: ${item.title}`);
+      console.log(`  ID: ${options.id}`);
+      console.log(`  Title: ${options.title}`);
     } catch (error) {
       console.error('✗ Failed to create backlog item:', error);
       process.exit(1);

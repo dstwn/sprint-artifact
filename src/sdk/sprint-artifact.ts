@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { existsSync } from 'node:fs';
 import type {
   SprintArtifactConfig,
   AuthConfig,
@@ -57,28 +58,42 @@ export class SprintArtifact {
     }
   }
 
-  async createBacklog(title: string, description: string, priority: BacklogItem['priority'] = 'medium'): Promise<BacklogItem> {
+  async createBacklog(taskId: string, title: string): Promise<void> {
     await this.ensureInitialized();
 
-    const item: BacklogItem = {
-      id: crypto.randomUUID(),
-      title,
-      description,
-      priority,
-      status: 'todo',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    const folderName = `${taskId} ${title}`;
+    const yearFolder = this.config!.googleDrive.year;
+    const backlogsFolder = await this.driveClient!.findFolder('Backlogs', this.config!.googleDrive.folderId);
+    
+    let backlogsId: string;
+    if (backlogsFolder) {
+      backlogsId = backlogsFolder;
+    } else {
+      // Find or create year folder first
+      let yearFolderId = await this.driveClient!.findFolder(yearFolder, this.config!.googleDrive.folderId);
+      if (!yearFolderId) {
+        yearFolderId = await this.driveClient!.createFolder(yearFolder, this.config!.googleDrive.folderId);
+      }
+      backlogsId = await this.driveClient!.createFolder('Backlogs', yearFolderId);
+    }
 
-    const content = this.formatBacklogItem(item);
-    const fileId = await this.driveClient!.createFile(
-      `${item.id}.md`,
-      content,
-      this.config!.googleDrive.folderId
-    );
+    // Create task folder
+    const taskFolderId = await this.driveClient!.createFolder(folderName, backlogsId);
+
+    // Create subfolders
+    await this.driveClient!.createFolder('01. Business Requirement Documents', taskFolderId);
+    await this.driveClient!.createFolder('02. Technical Documents', taskFolderId);
+    await this.driveClient!.createFolder('03. Testing Documents', taskFolderId);
+    await this.driveClient!.createFolder('04. User Acceptance Test Documents', taskFolderId);
+    await this.driveClient!.createFolder('05. Guide Documents', taskFolderId);
+
+    // Copy BRD template if exists
+    const brdTemplatePath = join(this.projectRoot, 'docs', 'brd');
+    if (existsSync(brdTemplatePath)) {
+      // TODO: Copy template files
+    }
 
     await this.syncManifest();
-    return item;
   }
 
   async sync(): Promise<{ added: number; updated: number; deleted: number }> {

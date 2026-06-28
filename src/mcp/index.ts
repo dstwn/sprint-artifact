@@ -26,9 +26,8 @@ const projectRoot = resolve(process.cwd());
 const artifact = new SprintArtifact(projectRoot);
 
 const BacklogCreateSchema = z.object({
+  id: z.string(),
   title: z.string(),
-  description: z.string().optional().default(''),
-  priority: z.enum(['high', 'medium', 'low']).optional().default('medium'),
 });
 
 const SyncSchema = z.object({});
@@ -53,15 +52,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: 'object',
           properties: {
-            title: { type: 'string', description: 'Backlog item title' },
-            description: { type: 'string', description: 'Backlog item description' },
-            priority: {
-              type: 'string',
-              enum: ['high', 'medium', 'low'],
-              description: 'Priority level',
-            },
+            id: { type: 'string', description: 'Task ID (e.g., IDS-123)' },
+            title: { type: 'string', description: 'Task title' },
           },
-          required: ['title'],
+          required: ['id', 'title'],
         },
       },
       {
@@ -113,13 +107,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     switch (name) {
       case 'backlog_create': {
-        const { title, description, priority } = BacklogCreateSchema.parse(args);
-        const item = await artifact.createBacklog(title, description, priority);
+        const { id, title } = BacklogCreateSchema.parse(args);
+        await artifact.createBacklog(id, title);
         return {
           content: [
             {
               type: 'text',
-              text: JSON.stringify(item, null, 2),
+              text: `Created backlog item: ${id} ${title}`,
             },
           ],
         };
