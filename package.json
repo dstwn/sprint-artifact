@@ -1,6 +1,6 @@
 {
   "name": "sprint-artifact",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Sprint Artifact management tool with Google Drive integration",
   "type": "module",
   "main": "./dist/sdk/index.js",
