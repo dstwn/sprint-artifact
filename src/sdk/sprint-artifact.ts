@@ -186,20 +186,32 @@ export class SprintArtifact {
   async pushToFolder(targetFolderId: string): Promise<void> {
     await this.ensureInitialized();
 
-    // Read files from local .planning folder
     const planningPath = join(this.projectRoot, '.planning');
     if (!existsSync(planningPath)) {
       throw new Error('.planning folder not found.');
     }
 
-    // Upload files to Google Drive
-    const { readdirSync, readFileSync } = await import('node:fs');
-    const files = readdirSync(planningPath);
+    await this.uploadFolder(planningPath, targetFolderId);
+  }
+
+  private async uploadFolder(localPath: string, parentFolderId: string): Promise<void> {
+    const { readdirSync, readFileSync, statSync } = await import('node:fs');
+    const items = readdirSync(localPath);
     
-    for (const file of files) {
-      const filePath = join(planningPath, file);
-      const content = readFileSync(filePath, 'utf-8');
-      await this.driveClient!.createFile(file, content, targetFolderId);
+    for (const item of items) {
+      const itemPath = join(localPath, item);
+      const stat = statSync(itemPath);
+      
+      if (stat.isDirectory()) {
+        // Create folder in Google Drive
+        const folderId = await this.driveClient!.createFolder(item, parentFolderId);
+        // Recursively upload folder contents
+        await this.uploadFolder(itemPath, folderId);
+      } else {
+        // Upload file
+        const content = readFileSync(itemPath, 'utf-8');
+        await this.driveClient!.createFile(item, content, parentFolderId);
+      }
     }
   }
 
