@@ -93,7 +93,7 @@ export async function login(options?: {
   const port = (server.address() as any).port;
   server.close();
 
-  const redirectUri = `http://localhost:${port}/callback`;
+  const redirectUri = `http://localhost:${port}`;
 
   const oauth2Client = new google.auth.OAuth2(
     clientId,
@@ -111,59 +111,54 @@ export async function login(options?: {
     const callbackServer = createServer(async (req, res) => {
       const url = new URL(req.url!, `http://localhost:${port}`);
 
-      if (url.pathname === '/callback') {
-        const code = url.searchParams.get('code');
-        const error = url.searchParams.get('error');
+      const code = url.searchParams.get('code');
+      const error = url.searchParams.get('error');
 
-        if (error) {
-          res.writeHead(400, { 'Content-Type': 'text/html' });
-          res.end(`<h1>Error</h1><p>${error}</p>`);
-          callbackServer.close();
-          reject(new Error(`OAuth error: ${error}`));
-          return;
-        }
+      if (error) {
+        res.writeHead(400, { 'Content-Type': 'text/html' });
+        res.end(`<h1>Error</h1><p>${error}</p>`);
+        callbackServer.close();
+        reject(new Error(`OAuth error: ${error}`));
+        return;
+      }
 
-        if (!code) {
-          res.writeHead(400, { 'Content-Type': 'text/html' });
-          res.end('<h1>Error</h1><p>No code received</p>');
-          callbackServer.close();
-          reject(new Error('No authorization code received'));
-          return;
-        }
+      if (!code) {
+        res.writeHead(400, { 'Content-Type': 'text/html' });
+        res.end('<h1>Error</h1><p>No code received</p>');
+        callbackServer.close();
+        reject(new Error('No authorization code received'));
+        return;
+      }
 
-        try {
-          const { tokens } = await oauth2Client.getToken(code);
+      try {
+        const { tokens } = await oauth2Client.getToken(code);
 
-          const credentials: OAuth2Credentials = {
-            client_id: clientId!,
-            client_secret: clientSecret!,
-            redirect_uris: [redirectUri],
-            refresh_token: tokens.refresh_token || undefined,
-            access_token: tokens.access_token || undefined,
-            token_expiry: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : undefined,
-          };
+        const credentials: OAuth2Credentials = {
+          client_id: clientId!,
+          client_secret: clientSecret!,
+          redirect_uris: [redirectUri],
+          refresh_token: tokens.refresh_token || undefined,
+          access_token: tokens.access_token || undefined,
+          token_expiry: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : undefined,
+        };
 
-          res.writeHead(200, { 'Content-Type': 'text/html' });
-          res.end(`
-            <html>
-              <body style="font-family: sans-serif; text-align: center; padding: 50px;">
-                <h1 style="color: #4CAF50;">✓ Login Successful</h1>
-                <p>You can close this window and return to the terminal.</p>
-              </body>
-            </html>
-          `);
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(`
+          <html>
+            <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+              <h1 style="color: #4CAF50;">✓ Login Successful</h1>
+              <p>You can close this window and return to the terminal.</p>
+            </body>
+          </html>
+        `);
 
-          callbackServer.close();
-          resolve(credentials);
-        } catch (err) {
-          res.writeHead(500, { 'Content-Type': 'text/html' });
-          res.end('<h1>Error</h1><p>Failed to get tokens</p>');
-          callbackServer.close();
-          reject(err);
-        }
-      } else {
-        res.writeHead(404);
-        res.end();
+        callbackServer.close();
+        resolve(credentials);
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'text/html' });
+        res.end('<h1>Error</h1><p>Failed to get tokens</p>');
+        callbackServer.close();
+        reject(err);
       }
     });
 
