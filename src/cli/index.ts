@@ -44,41 +44,51 @@ program
         process.exit(1);
       }
 
-      // Get all folders from year folder
+      // Get folders inside year folder (Backlogs, Sprint 1, etc.)
       const subFolders = await driveClient.listFiles(yearFolder.id);
-      const allTasks: { name: string; id: string; folderId: string }[] = [];
+      const folders = subFolders.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
 
-      for (const folder of subFolders.filter(f => f.mimeType === 'application/vnd.google-apps.folder')) {
-        const tasks = await driveClient.listFiles(folder.id);
-        for (const task of tasks.filter(f => f.mimeType === 'application/vnd.google-apps.folder')) {
-          allTasks.push({ name: task.name, id: task.id, folderId: folder.id });
-        }
-      }
-
-      if (allTasks.length === 0) {
-        console.error('✗ No tasks found.');
+      if (folders.length === 0) {
+        console.error('✗ No folders found.');
         process.exit(1);
       }
 
-      let selectedTask: { name: string; id: string; folderId: string };
+      // Step 1: Select folder
+      const selectedFolderId = await select({
+        message: 'Select folder:',
+        choices: folders.map(f => ({ name: f.name, value: f.id })),
+      });
+      const selectedFolderName = folders.find(f => f.id === selectedFolderId)?.name || '';
+
+      // Step 2: Get tasks from selected folder
+      const tasks = await driveClient.listFiles(selectedFolderId);
+      const taskFolders = tasks.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
+
+      if (taskFolders.length === 0) {
+        console.error('✗ No tasks found in folder.');
+        process.exit(1);
+      }
+
+      // Step 3: Select task
+      let selectedTask: { name: string; id: string };
 
       if (options.taskId) {
-        const task = allTasks.find(t => t.name.startsWith(options.taskId));
+        const task = taskFolders.find(t => t.name.startsWith(options.taskId));
         if (!task) {
           console.error(`✗ Task "${options.taskId}" not found.`);
           process.exit(1);
         }
         selectedTask = task;
       } else {
-        const selected = await select({
-          message: 'Select active task:',
-          choices: allTasks.map(t => ({ name: t.name, value: t })),
+        selectedTask = await select({
+          message: 'Select task:',
+          choices: taskFolders.map(t => ({ name: t.name, value: { name: t.name, id: t.id } })),
         });
-        selectedTask = selected;
       }
 
-      await artifact.selectTask(selectedTask.name, selectedTask.id, selectedTask.folderId);
+      await artifact.selectTask(selectedTask.name, selectedTask.id, selectedFolderId);
       console.log(`✓ Active task: ${selectedTask.name}`);
+      console.log(`  Folder: ${selectedFolderName}`);
     } catch (error) {
       console.error('✗ Failed to select task:', error);
       process.exit(1);
