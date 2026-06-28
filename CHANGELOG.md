@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2026-06-28
+
+### Added
+- `select` sekarang 2 langkah: pilih folder dulu, baru pilih task
+- `select` otomatis pull task ke local setelah dipilih
+
+### Changed
+- `select` tidak lagi list semua task sekaligus, tapi per folder
+- Workflow lebih simpel: select = select + pull
+
 ## [0.4.0] - 2026-06-28
 
 ### Added

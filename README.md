@@ -63,7 +63,7 @@ Interactive prompts:
 ### Task Management
 
 ```bash
-# Select active task (interactive)
+# Select active task (interactive + auto pull)
 sprint-artifact select
 
 # Create backlog item dengan folder structure
@@ -105,7 +105,7 @@ sprint-artifact sprint move --backlog-id IDS-123 --sprint-id "Sprint 1"
 |---------|-------------|
 | `login` | Login dengan Google account |
 | `init` | Initialize project (pilih tahun & folder) |
-| `select` | Pilih active task |
+| `select` | Pilih active task + auto pull ke local |
 | `backlog create` | Buat backlog item dengan folder structure |
 | `pull` | Pull task dari Google Drive ke local |
 | `push` | Push file dari local ke Google Drive |
@@ -148,7 +148,7 @@ const artifact = new SprintArtifact(process.cwd());
 // Init dengan folder ID dan tahun
 await artifact.init('GOOGLE_DRIVE_FOLDER_ID', '2026', 'BACKLOGS_FOLDER_ID');
 
-// Select task
+// Select task (auto pull ke local)
 await artifact.selectTask('IDS-123 Fix login bug', 'folder-id', 'parent-folder-id');
 
 // Buat backlog
@@ -196,14 +196,14 @@ Auto-generated saat login. Jangan commit ke repository.
 .sprint-artifact/
 ├── config.json         # Project config
 ├── auth.json           # OAuth2 tokens (auto-generated)
-├── backlogs/           # Pulled backlog tasks
+├── backlogs/           # Pulled backlog tasks (auto dari select)
 │   └── IDS-123 Fix login bug/
 │       ├── 01. Business Requirement Documents/
 │       ├── 02. Technical Documents/
 │       ├── 03. Testing Documents/
 │       ├── 04. User Acceptance Test Documents/
 │       └── 05. Guide Documents/
-└── sprints/            # Pulled sprint tasks
+└── sprints/            # Pulled sprint tasks (auto dari select)
     └── IDS-456 Another task/
 ```
 
@@ -235,18 +235,15 @@ Sprint Artifacts/ (Shared Drive)
 ### Daily Flow
 
 ```bash
-# 1. Select task yang sedang dikerjakan
+# 1. Select task (otomatis pull ke local)
 sprint-artifact select
 
-# 2. Pull task dari Google Drive
-sprint-artifact pull --backlog
+# 2. Edit file di local (.sprint-artifact/backlogs/...)
 
-# 3. Edit file di local (.sprint-artifact/backlogs/...)
-
-# 4. Push perubahan ke Google Drive
+# 3. Push perubahan ke Google Drive
 sprint-artifact push --tech-docs
 
-# 5. Sync manifest
+# 4. Sync manifest
 sprint-artifact sync
 ```
 
@@ -256,13 +253,10 @@ sprint-artifact sync
 # 1. Buat task di Google Drive
 sprint-artifact backlog create --id IDS-123 --title "Fix login bug"
 
-# 2. Select task
+# 2. Select task (otomatis pull ke local)
 sprint-artifact select
 
-# 3. Pull task ke local
-sprint-artifact pull --backlog
-
-# 4. Edit dan push
+# 3. Edit dan push
 sprint-artifact push --tech-docs
 ```
 
