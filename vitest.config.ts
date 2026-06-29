@@ -6,12 +6,6 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.ts'],
     exclude: ['node_modules', 'dist'],
-    pool: 'forks',
-    poolOptions: {
-      forks: {
-        singleFork: true,
-        execArgv: ['--max-old-space-size=8192'],
-      },
-    },
+    fileParallelism: false,
   },
 });
