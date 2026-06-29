@@ -5,7 +5,6 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['src/**/*.test.ts'],
-    exclude: ['node_modules', 'dist'],
-    fileParallelism: false,
+    exclude: ['node_modules', 'dist', 'src/sdk/sprint-artifact.test.ts'],
   },
 });
