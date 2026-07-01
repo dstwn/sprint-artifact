@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from 'node:fs';
+import { join, dirname, resolve } from 'node:path';
 import { EOL, homedir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 
 type Assistant = 'cursor' | 'opencode' | 'claude' | 'copilot' | 'skill';
 
@@ -66,161 +67,28 @@ const MCP_CONFIGS: Record<Exclude<Assistant, 'skill'>, {
   },
 };
 
-interface SkillSpec {
-  description: string;
-  body: string;
-}
-
-const SKILL_SPECS: Record<string, SkillSpec> = {
-  'sprint-artifact': {
-    description: 'Manage sprint artifacts (backlogs, tasks, documents) with Google Drive. Overview of all commands and MCP tools.',
-    body: `Manage sprint artifacts (backlogs, tasks, documents) with Google Drive integration.
-
-## Available Commands
-
-|\`/sprint-artifact-init\`|Initialize project config|
-|\`/sprint-artifact-select\`|Browse folders, pick task, auto-pull to local|
-|\`/sprint-artifact-backlog-create\`|Create backlog with 5-subfolder structure|
-|\`/sprint-artifact-pull\`|Pull task files from Drive to local|
-|\`/sprint-artifact-push\`|Push .planning/ files to active task in Drive|
-|\`/sprint-artifact-sync\`|Bidirectional sync for active task|
-|\`/sprint-artifact-move\`|Move task between Backlogs and Sprint folders|
-|\`/sprint-artifact-status\`|Show project config and active task|
-
-## MCP Tools
-
-|\`list_folders\`|List year folders or subfolders|
-|\`list_tasks\`|List tasks in a folder|
-|\`init_project\`|Initialize project config|
-|\`backlog_create\`|Create backlog with subfolder structure|
-|\`select_task\`|Select active task and auto-pull|
-|\`pull_task\`|Pull task from Drive to local|
-|\`push_files\`|Push .planning/ to active task|
-|\`sync_documents\`|Bidirectional sync|
-|\`move_to_sprint\`|Move task folder between Backlogs/Sprints|
-|\`status\`|Show config and active task|
-
-## Folder Structure
-
-\`\`\`
-SprintArtifacts/ → YYYY/ → Backlogs|Sprints/ → ID-Title/ → 01..05 subfolders
-\`\`\`
-
-Local workspace: \`.sprint-artifact/backlogs|sprints/<task>/\`
-Push source: \`.planning/\``,
-  },
-  'sprint-artifact-init': {
-    description: 'Initialize Sprint Artifact project config (folder ID, year, default backlog folder).',
-    body: `Initialize Sprint Artifact project configuration.
-
-## Steps
-
-1. Call \`init_project\` with \`folderId\` (root SprintArtifacts Drive folder ID)
-2. Optional: \`year\` (default: current year)
-3. Optional: \`defaultFolderId\` (default backlog folder)
-
-Config is saved to \`.sprint-artifact/config.json\`.`,
-  },
-  'sprint-artifact-select': {
-    description: 'Browse Google Drive folders and select an active task. Auto-pulls to local workspace.',
-    body: `Browse and select a task to work on. Auto-pulls to local.
-
-## Steps
-
-1. Call \`list_folders\` to browse year folders and subfolders
-2. Call \`list_tasks\` with chosen folderId to list tasks
-3. Call \`select_task\` with taskName, taskId, taskType (backlogs|sprints)
-
-Task is auto-pulled to \`.sprint-artifact/<type>/<task>/\`.`,
-  },
-  'sprint-artifact-backlog-create': {
-    description: 'Create a backlog item with standardized 5-subfolder structure in Google Drive. Auto-selects and auto-pulls.',
-    body: `Create a new backlog item with standardized folder structure. Auto-selects and auto-pulls.
-
-## Steps
-
-1. Call \`backlog_create\` with \`id\` (e.g. "IDS-123") and \`title\`
-2. Optional: \`folderId\` (uses default from config if omitted)
-
-Creates folder structure in Drive:
-- 01. Business Requirement Documents
-- 02. Technical Documents
-- 03. Testing Documents
-- 04. User Acceptance Test Documents
-- 05. Guide Documents
-
-Task is auto-selected and pulled to \`.sprint-artifact/backlogs/<id> <title>/\`.`,
-  },
-  'sprint-artifact-pull': {
-    description: 'Pull task files from Google Drive to local workspace.',
-    body: `Download task files from Google Drive to local.
-
-## Steps
-
-1. Call \`list_folders\` to browse to find the task
-2. Call \`list_tasks\` to list tasks in chosen folder
-3. Call \`pull_task\` with taskId, taskName, taskType (backlogs|sprints)
-
-Files downloaded to \`.sprint-artifact/<type>/<task>/\`.`,
-  },
-  'sprint-artifact-push': {
-    description: 'Push .planning/ files to active task in Google Drive. Auto-syncs after push.',
-    body: `Upload .planning/ files to active task in Google Drive. Auto-syncs after push.
-
-## Steps
-
-1. Ensure active task is selected (call select_task first)
-2. Call \`push_files\` with optional subfolder:
-   - "01. Business Requirement Documents"
-   - "02. Technical Documents"
-   - "03. Testing Documents"
-   - "04. User Acceptance Test Documents"
-   - "05. Guide Documents"
-   - Omit for interactive selection
-
-Auto-syncs after push.`,
-  },
-  'sprint-artifact-sync': {
-    description: 'Bidirectional sync for active task: pull remote files, upload local new files.',
-    body: `Bidirectional sync for active task: pull remote files, upload local new files.
-
-## Steps
-
-1. Ensure active task is selected
-2. Call \`sync_documents\` — no params needed
-
-Result shows added/updated/deleted counts.`,
-  },
-  'sprint-artifact-move': {
-    description: 'Move a task folder between Backlogs and Sprint folders. Local folder moves automatically.',
-    body: `Move a task folder between Backlogs and Sprint folders. Local folder moves automatically.
-
-## Steps
-
-1. Call \`list_folders\` to browse source folder
-2. Call \`list_tasks\` to list tasks in the source folder
-3. Call \`move_to_sprint\` with taskFolderId, newParentFolderId
-   - Optional: taskName (for local folder rename)
-
-Local folder moves from \`.sprint-artifact/backlogs/\` to \`.sprint-artifact/sprints/\`.`,
-  },
-  'sprint-artifact-status': {
-    description: 'Show current project configuration and active task details.',
-    body: `Show current project configuration and active task details.
-
-## Steps
-
-1. Call \`status\` — no params needed
-
-Returns: rootFolderId, year, selectedTask, lastSync, fileCount, etc.`,
-  },
-};
-
 const SKILL_DIRS: Record<string, string> = {
   cursor: '.cursor/skills',
   claude: '.claude/skills',
   opencode: '.opencode/skills',
 };
+
+function getPackageSkillsDir(): string {
+  const here = dirname(fileURLToPath(import.meta.url));
+  return resolve(here, '..', '..', 'skills');
+}
+
+function parseSkillFile(filePath: string): { name: string; description: string; body: string } {
+  const content = readFileSync(filePath, 'utf-8');
+  const match = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+  if (!match) throw new Error(`Invalid skill file: ${filePath}`);
+  const frontmatter = match[1];
+  const body = match[2].trim();
+  const nameMatch = frontmatter.match(/^name:\s*(.+)$/m);
+  const descMatch = frontmatter.match(/^description:\s*"(.+)"$/m);
+  if (!nameMatch || !descMatch) throw new Error(`Missing name/description in: ${filePath}`);
+  return { name: nameMatch[1].trim(), description: descMatch[1].trim(), body };
+}
 
 function buildSkillYaml(name: string, description: string, extra: Record<string, unknown> = {}): string {
   const lines: string[] = ['---'];
@@ -275,17 +143,27 @@ function installMcpConfig(projectRoot: string, name: Assistant): void {
 }
 
 function installSkillsTo(baseDir: string, disableModelInvocation: boolean): void {
-  for (const [name, spec] of Object.entries(SKILL_SPECS)) {
+  const skillsDir = getPackageSkillsDir();
+  if (!existsSync(skillsDir)) {
+    console.warn(`  ⚠ Skills directory not found: ${skillsDir}`);
+    return;
+  }
+  const entries = readdirSync(skillsDir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const skillFile = join(skillsDir, entry.name, 'SKILL.md');
+    if (!existsSync(skillFile)) continue;
+    const skill = parseSkillFile(skillFile);
     const extra: Record<string, unknown> = {};
     if (disableModelInvocation) {
       extra['disable-model-invocation'] = true;
     }
-    const yaml = buildSkillYaml(name, spec.description, extra);
-    const dir = join(baseDir, name);
+    const yaml = buildSkillYaml(skill.name, skill.description, extra);
+    const dir = join(baseDir, entry.name);
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
     }
-    writeFileSync(join(dir, 'SKILL.md'), yaml + '\n\n' + spec.body + '\n');
+    writeFileSync(join(dir, 'SKILL.md'), yaml + '\n\n' + skill.body + '\n');
   }
 }
 
