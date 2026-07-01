@@ -6,13 +6,17 @@ import { resolve, join } from 'node:path';
 import { login } from '../utils/oauth2.js';
 import { saveAuth } from '../utils/config.js';
 import { select, input } from '@inquirer/prompts';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const { version } = require('../../package.json') as { version: string };
 
 const program = new Command();
 
 program
   .name('sprint-artifact')
   .description('Sprint Artifact management tool with Google Drive integration')
-  .version('0.1.0');
+  .version(version);
 
 program
   .command('select')
