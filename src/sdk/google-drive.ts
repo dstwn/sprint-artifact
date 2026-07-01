@@ -255,6 +255,51 @@ export class GoogleDriveClient {
     }
   }
 
+  async exportFile(fileId: string, mimeType: string): Promise<Buffer> {
+    const url = `https://www.googleapis.com/drive/v3/files/${fileId}/export?mimeType=${encodeURIComponent(mimeType)}`;
+
+    try {
+      const res = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` },
+      });
+
+      if (res.status === 401) {
+        await this.refreshAccessToken();
+        const retryRes = await fetch(url, {
+          headers: { 'Authorization': `Bearer ${this.accessToken}` },
+        });
+        return Buffer.from(await retryRes.arrayBuffer());
+      }
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`Export failed (${res.status}): ${errText}`);
+      }
+
+      return Buffer.from(await res.arrayBuffer());
+    } catch {
+      const result = execSync(
+        `curl -s "${url}" -H "Authorization: Bearer ${this.accessToken}"`,
+        { encoding: 'utf-8' }
+      );
+      return Buffer.from(result);
+    }
+  }
+
+  isGoogleDocsFile(mimeType: string): boolean {
+    return mimeType.startsWith('application/vnd.google-apps.');
+  }
+
+  getExportMimeType(mimeType: string): { mimeType: string; ext: string } | null {
+    const map: Record<string, { mimeType: string; ext: string }> = {
+      'application/vnd.google-apps.document': { mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', ext: '.docx' },
+      'application/vnd.google-apps.spreadsheet': { mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', ext: '.xlsx' },
+      'application/vnd.google-apps.presentation': { mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', ext: '.pptx' },
+      'application/vnd.google-apps.drawing': { mimeType: 'image/png', ext: '.png' },
+    };
+    return map[mimeType] || null;
+  }
+
   async getFileMetadata(fileId: string): Promise<ManifestFile> {
     const url = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id, name, mimeType, modifiedTime, md5Checksum`;
     const file = await this.request('GET', url);

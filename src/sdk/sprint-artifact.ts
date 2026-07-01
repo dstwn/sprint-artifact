@@ -243,16 +243,21 @@ export class SprintArtifact {
     const items = await this.driveClient!.listFiles(folderId);
     
     for (const item of items) {
-      const itemPath = join(localPath, item.name);
-      
       if (item.mimeType === 'application/vnd.google-apps.folder') {
-        // Create folder and recurse
-        if (!existsSync(itemPath)) {
-          mkdirSync(itemPath, { recursive: true });
+        const folderPath = join(localPath, item.name);
+        if (!existsSync(folderPath)) {
+          mkdirSync(folderPath, { recursive: true });
         }
-        await this.pullFolder(item.id, itemPath);
+        await this.pullFolder(item.id, folderPath);
+      } else if (this.driveClient!.isGoogleDocsFile(item.mimeType)) {
+        const exportInfo = this.driveClient!.getExportMimeType(item.mimeType);
+        if (exportInfo) {
+          const exportPath = join(localPath, item.name + exportInfo.ext);
+          const content = await this.driveClient!.exportFile(item.id, exportInfo.mimeType);
+          writeFileSync(exportPath, content);
+        }
       } else {
-        // Download file
+        const itemPath = join(localPath, item.name);
         const content = await this.driveClient!.getFile(item.id);
         writeFileSync(itemPath, content);
       }
